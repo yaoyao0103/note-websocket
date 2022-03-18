@@ -17,6 +17,7 @@ import java.util.Map;
 public class ChatController {
 
     Map<String, String> dict = new HashMap<>();
+    ControllerState controllerState = ControllerState.LISTENING;
 
     @Autowired
     private SimpMessagingTemplate simpMessagingTemplate;
@@ -37,6 +38,39 @@ public class ChatController {
     @MessageMapping("/chat.send")
     public void sendMessage(@Header("simpSessionId") String sessionId, @Payload ChatMessage chatMessage) {
         String sender = chatMessage.getSender();
+
+        /*
+        // skip the OP
+        if(remoteTs <= localTs) return;
+        // handle this OP
+        else{
+            if(controllerState == ControllerState.LISTENING){
+                // start handle this OP
+                controllerState = ControllerState.PROCESSING;
+                // save this OP
+                saveOp(op);
+
+                //respond ACK msg to the client
+                simpMessagingTemplate.convertAndSendToUser(sessionId, "/msg", ACK);
+
+                // send the OP to the other clients
+                for (Map.Entry<String, String> entry : dict.entrySet()) {
+                    if( !sender.equals(entry.getKey()) ){
+                        simpMessagingTemplate.convertAndSendToUser(entry.getValue(), "/msg", op);
+                    }
+                }
+                localTs += 1;
+                //finish
+                controllerState = ControllerState.LISTENING;
+             }
+             // do nothing
+             else{
+               return;
+             }
+        }
+        */
+
+
         for (Map.Entry<String, String> entry : dict.entrySet()) {
             if( !sender.equals(entry.getKey()) ){
                 simpMessagingTemplate.convertAndSendToUser(entry.getValue(), "/msg", chatMessage);
