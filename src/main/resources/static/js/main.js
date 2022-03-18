@@ -10,6 +10,7 @@ var connectingElement = document.querySelector('.connecting');
 
 var stompClient = null;
 var username = null;
+var sessionId = null;
 
 var colors = [
     '#2196F3', '#32c787', '#00BCD4', '#ff5652',
@@ -35,6 +36,8 @@ function connect(event) {
 function onConnected() {
     // Subscribe to the Public Topic
     stompClient.subscribe('/topic/public', onMessageReceived);
+    //console.log("session id: ", sessionId);
+    //stompClient.subscribe('/user/' + sessionId + '/msg', onMessageReceived);
 
     // Tell your username to the server
     stompClient.send("/app/chat.register",
@@ -47,7 +50,7 @@ function onConnected() {
 
 
 function onError(error) {
-    connectingElement.textContent = 'Não foi possível se conectar ao WebSocket! Atualize a página e tente novamente ou entre em contato com o administrador.';
+    connectingElement.textContent = 'Could not connect to WebSocket! Please refresh the page and try again or contact your administrator.';
     connectingElement.style.color = 'red';
 }
 
@@ -75,6 +78,10 @@ function onMessageReceived(payload) {
     var messageElement = document.createElement('li');
 
     if(message.type === 'JOIN') {
+        if(message.sender === username){
+            sessionId = message.sessionId;
+            stompClient.subscribe('/user/' + sessionId + '/msg', onMessageReceived);
+        }
         messageElement.classList.add('event-message');
         message.content = message.sender + ' joined!';
     } else if (message.type === 'LEAVE') {

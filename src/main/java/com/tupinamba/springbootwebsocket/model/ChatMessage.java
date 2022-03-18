@@ -5,6 +5,7 @@ public class ChatMessage {
     private String content;
     private String sender;
     private MessageType type;
+    private String sessionId;
 
     public enum MessageType {
         CHAT, LEAVE, JOIN
@@ -32,5 +33,13 @@ public class ChatMessage {
 
     public void setType(MessageType type) {
         this.type = type;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 }
