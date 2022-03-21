@@ -3,6 +3,7 @@
 var usernamePage = document.querySelector('#username-page');
 var chatPage = document.querySelector('#chat-page');
 var usernameForm = document.querySelector('#usernameForm');
+var opForm=document.querySelector('#opForm');
 var messageForm = document.querySelector('#messageForm');
 var messageInput = document.querySelector('#message');
 var messageArea = document.querySelector('#messageArea');
@@ -16,6 +17,26 @@ var colors = [
     '#2196F3', '#32c787', '#00BCD4', '#ff5652',
     '#ffc107', '#ff85af', '#FF9800', '#39bbb0'
 ];
+var localTS=0;
+var remoteTS=0;
+var B_op= null;
+var B_parent= null;
+var B_index= null;
+var B_content= null;
+
+class Op {
+    constructor(UId, opName, parentId, index, content){
+        this.UId = UId;
+        this.opName = opName;
+        this.parentId = parentId;
+        this.index = index;
+        this.content = content;
+    }
+}
+const ClientStateenum = {"synced":1, "AwaitingACK":2, "AwaitingWithBuffer":3}
+Object.freeze(ClientState);
+
+var ClientState=null;
 
 function connect(event) {
     username = document.querySelector('#name').value.trim();
@@ -30,6 +51,7 @@ function connect(event) {
         stompClient.connect({}, onConnected, onError);
     }
     event.preventDefault();
+
 }
 
 
@@ -46,6 +68,7 @@ function onConnected() {
     )
 
     connectingElement.classList.add('hidden');
+    ClientState=ClientStateenum.synced;
 }
 
 
@@ -56,23 +79,39 @@ function onError(error) {
 
 
 function send(event) {
-    var messageContent = messageInput.value.trim();
 
-    if(messageContent && stompClient) {
-        var chatMessage = {
-            sender: username,
-            content: messageInput.value,
-            type: 'CHAT'
-        };
+    if(ClientState==ClientStateenum.synced) {
 
-        stompClient.send("/app/chat.send", {}, JSON.stringify(chatMessage));
-        messageInput.value = '';
+        var messageContent = messageInput.value.trim();
+        var opName = document.getElementById("A_op");
+        var index = document.getElementById("A_index");
+        var parentId = document.getElementById("A_parent");
+        var content = document.getElementById("A_content");
+
+        if (stompClient) {
+            console.log('111');
+            var chatMessage = {
+                sender: username,
+                opName: opName.value,
+                index: index.value,
+                content: content.value,
+                remoteTS: localTS,
+                parentId: parentId.value,
+                type: 'CHAT'
+            };
+
+            stompClient.send("/app/chat.send", {}, JSON.stringify(chatMessage));
+            messageInput.value = '';
+        }
+        ClientState = ClientStateenum.AwaitingACK;
+        event.preventDefault();
+
     }
-    event.preventDefault();
 }
 
 
 function onMessageReceived(payload) {
+
     var message = JSON.parse(payload.body);
 
     var messageElement = document.createElement('li');
@@ -88,6 +127,79 @@ function onMessageReceived(payload) {
         messageElement.classList.add('event-message');
         message.content = message.sender + ' left!';
     } else {
+        if (ClientState==ClientStateenum.synced){
+            let A_op = message.opName;
+            let A_parent= message.parentId;
+            let A_index = message.index;
+            let A_content = message.content;
+            console.log(A_index);
+            let blockOpA = new Op(1, A_op, A_parent, A_index, A_content);
+            let newNodeA;
+            let newTextNodeA;
+            let nodeOfClientA;
+            let children;
+            if(blockOpA.opName === 'INSERT'){
+                //create new node
+                newNodeA = document.createElement('div');
+                newTextNodeA = document.createTextNode(A_content);
+                newNodeA.appendChild(newTextNodeA);
+                //apply locally
+                nodeOfClientA = document.getElementById('A_' + A_parent);
+                children = nodeOfClientA.children;
+                nodeOfClientA.insertBefore(newNodeA, children[A_index]);
+            }
+            else if(blockOpA.opName === 'DELETE'){
+                nodeOfClientA = document.getElementById('A_' + A_parent);
+                children = nodeOfClientA.children;
+                nodeOfClientA.removeChild(children[A_index]);
+            }
+            else if(blockOpA.opName === 'EDIT'){
+                nodeOfClientA = document.getElementById('A_' + A_parent);
+                children = nodeOfClientA.children;
+                children[A_index].innerHTML = A_content;
+            }
+            localTS=message.remoteTS;
+            ClientState = ClientStateenum.synced;
+        }
+        else if(ClientState==ClientStateenum.AwaitingACK){
+
+            if(message.content==='Ack') {
+                let A_op = document.getElementById("A_op").value;
+                let A_parent = document.getElementById("A_parent").value;
+                let A_index = parseInt(document.getElementById("A_index").value);
+                let A_content = document.getElementById("A_content").value;
+                let blockOpA = new Op(1, A_op, A_parent, A_index, A_content);
+                let newNodeA;
+                let newTextNodeA;
+                let nodeOfClientA;
+                let children;
+
+                if (blockOpA.opName === 'INSERT') {
+                    //create new node
+                    newNodeA = document.createElement('div');
+                    newTextNodeA = document.createTextNode(A_content);
+                    newNodeA.appendChild(newTextNodeA);
+                    //apply locally
+                    nodeOfClientA = document.getElementById('A_' + A_parent);
+                    children = nodeOfClientA.children;
+                    nodeOfClientA.insertBefore(newNodeA, children[A_index]);
+                } else if (blockOpA.opName === 'DELETE') {
+                    nodeOfClientA = document.getElementById('A_' + A_parent);
+                    children = nodeOfClientA.children;
+                    nodeOfClientA.removeChild(children[A_index]);
+                } else if (blockOpA.opName === 'EDIT') {
+                    nodeOfClientA = document.getElementById('A_' + A_parent);
+                    children = nodeOfClientA.children;
+                    children[A_index].innerHTML = A_content;
+                }
+                localTS = message.remoteTS;
+                ClientState = ClientStateenum.synced;
+            }
+            else{
+
+            }
+        }
+
         messageElement.classList.add('chat-message');
 
         var avatarElement = document.createElement('i');
@@ -101,6 +213,7 @@ function onMessageReceived(payload) {
         var usernameText = document.createTextNode(message.sender);
         usernameElement.appendChild(usernameText);
         messageElement.appendChild(usernameElement);
+
     }
 
     var textElement = document.createElement('p');
@@ -124,5 +237,213 @@ function getAvatarColor(messageSender) {
     return colors[index];
 }
 
+
+
+
+function sleep(time) {
+    return new Promise((resolve) => setTimeout(resolve, time));
+}
+function contain(refParentId, refIndex, tarParentId, tarIndex){
+    return false;
+}
+function TII(tarBlockOp, refBlockOp){
+    let tarUId = tarBlockOp.UId;
+    let refUId = refBlockOp.UId;
+    let tarParentId = tarBlockOp.parentId;
+    let refParentId = refBlockOp.parentId;
+    let tarIndex = tarBlockOp.index;
+    let refIndex = refBlockOp.index;
+    let tarOp = tarBlockOp.opName;
+    let tarContent = tarBlockOp.content;
+    if(tarParentId != refParentId || tarIndex < refIndex || (tarParentId == refParentId && tarIndex == refIndex && tarUId > refUId)){
+        return tarBlockOp;
+    }
+    // 其他
+    else{
+        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex + 1, tarContent);
+        return xFormedOp;
+    }
+}
+function TID(tarBlockOp, refBlockOp){
+    let tarUId = tarBlockOp.UId;
+    let refUId = refBlockOp.UId;
+    let tarParentId = tarBlockOp.parentId;
+    let refParentId = refBlockOp.parentId;
+    let tarIndex = tarBlockOp.index;
+    let refIndex = refBlockOp.index;
+    let tarOp = tarBlockOp.opName;
+    let tarContent = tarBlockOp.content;
+    if(contain(refParentId, refIndex, tarParentId, tarIndex)){
+        let xFormedOp = new Op(tarUId, 'null', tarParentId, tarIndex, tarContent);
+        return xFormedOp;
+    }
+    // 若在以下條件: 1. 不在同個parent下  2. 目標index小於等於參考index => 則不改變操作
+    else if(tarParentId != refParentId || tarIndex <= refIndex)
+        return tarBlockOp;
+    // 其他
+    else{
+        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex - 1, tarContent);
+        return xFormedOp;
+    }
+}
+
+function TDI(tarBlockOp, refBlockOp){
+    let tarUId = tarBlockOp.UId;
+    let refUId = refBlockOp.UId;
+    let tarParentId = tarBlockOp.parentId;
+    let refParentId = refBlockOp.parentId;
+    let tarIndex = tarBlockOp.index;
+    let refIndex = refBlockOp.index;
+    let tarOp = tarBlockOp.opName;
+    let tarContent = tarBlockOp.content;
+    // 若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作 (因為目標包含參考不需要改變，所以不多寫出來)
+    if(tarParentId != refParentId || tarIndex < refIndex)
+        return tarBlockOp;
+    //其他
+    else{
+        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex + 1, tarContent);
+        return xFormedOp;
+    }
+}
+
+function TIE(tarBlockOp, refBlockOp){
+    return tarBlockOp;
+}
+function TEI(tarBlockOp, refBlockOp){
+    let tarUId = tarBlockOp.UId;
+    let refUId = refBlockOp.UId;
+    let tarParentId = tarBlockOp.parentId;
+    let refParentId = refBlockOp.parentId;
+    let tarIndex = tarBlockOp.index;
+    let refIndex = refBlockOp.index;
+    let tarOp = tarBlockOp.opName;
+    let tarContent = tarBlockOp.content;
+    //若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作
+    if(tarParentId != refParentId || tarIndex < refIndex)
+        return tarBlockOp;
+    //其他
+    else{
+        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex + 1, tarContent);
+        return xFormedOp;
+    }
+}
+
+function TIF(tarBlockOp, refBlockOp){
+    return tarBlockOp;
+}
+function TFI(tarBlockOp, refBlockOp){
+    let tarUId = tarBlockOp.UId;
+    let refUId = refBlockOp.UId;
+    let tarParentId = tarBlockOp.parentId;
+    let refParentId = refBlockOp.parentId;
+    let tarIndex = tarBlockOp.index;
+    let refIndex = refBlockOp.index;
+    let tarOp = tarBlockOp.opName;
+    let tarContent = tarBlockOp.content;
+    //目標parent包住參考parent，目標操作直接執行
+    if(contain(tarParentId,refParentId))
+        return tarBlockOp;
+    //參考parent包住目標parent，不會發生
+    //若在以下條件: 1. 不在同個parent下  2. 目標index小於或參考index => 則不改變操作
+    if(tarParentId != refParentId || tarIndex < refIndex)
+        return tarBlockOp;
+    //若在以下條件:目標index大於等於參考index =>操作index+1
+    else{
+        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex + 1, tarContent);
+        return xFormedOp;
+    }
+}
+function TDE(tarBlockOp, refBlockOp){
+    return tarBlockOp;
+}
+function TED(tarBlockOp, refBlockOp){
+    let tarUId = tarBlockOp.UId;
+    let refUId = refBlockOp.UId;
+    let tarParentId = tarBlockOp.parentId;
+    let refParentId = refBlockOp.parentId;
+    let tarIndex = tarBlockOp.index;
+    let refIndex = refBlockOp.index;
+    let tarOp = tarBlockOp.opName;
+    let tarContent = tarBlockOp.content;
+    //目標parent包住參考parent，不會有這個操作，因為會鎖住
+    //參考parent包住目標parent，不會有這個操作，因為會鎖住
+    //若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作
+    if(tarParentId != refParentId || tarIndex <= refIndex)
+        return tarBlockOp;
+    //若在以下條件: 目標index大於參考index => 則目標index-1
+    else{
+        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex - 1, tarContent);
+        return xFormedOp;
+    }
+    //其他(目標與參考index相等)，不會有這種操作，因為要先focus
+}
+
+function TDF(tarBlockOp, refBlockOp){
+    return tarBlockOp;
+}
+function TFD(tarBlockOp, refBlockOp){
+    let tarUId = tarBlockOp.UId;
+    let refUId = refBlockOp.UId;
+    let tarParentId = tarBlockOp.parentId;
+    let refParentId = refBlockOp.parentId;
+    let tarIndex = tarBlockOp.index;
+    let refIndex = refBlockOp.index;
+    let tarOp = tarBlockOp.opName;
+    let tarContent = tarBlockOp.content;
+    //其他(目標與參考index相等)，不會有這種操作，因為要先focus
+    if(tarParentId != refParentId || tarIndex <= refIndex){
+        return tarBlockOp;
+    }
+    //條件: tarIndex > refIndex 或者其他
+    else{
+        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex - 1, tarContent);
+        return xFormedOp;
+    }
+}
+function TDD(tarBlockOp, refBlockOp){
+    let tarUId = tarBlockOp.UId;
+    let refUId = refBlockOp.UId;
+    let tarParentId = tarBlockOp.parentId;
+    let refParentId = refBlockOp.parentId;
+    let tarIndex = tarBlockOp.index;
+    let refIndex = refBlockOp.index;
+    let tarOp = tarBlockOp.opName;
+    let tarContent = tarBlockOp.content;
+    // 目標包住參考 目標操作則不改變
+    if(contain(tarParentId,tarIndex,refParentId,refIndex)) return tarBlockOp;
+    // 參考包住目標 目標操作直接不執行
+    else if(contain(refParentId,refIndex, tarParentId,tarIndex)){
+        let xFormedOp = new Op(tarUId, 'null', tarParentId, tarIndex, tarContent);
+        return xFormedOp;
+    }
+    // 若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作 (因為目標包含參考不需要改變，所以不多寫出來)
+    if(tarParentId != refParentId || tarIndex < refIndex)
+        return tarBlockOp;
+    //若在以下條件: 目標index大於參考index =>則將目標index-1
+    else if(tarIndex > refIndex){
+        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex - 1, tarContent);
+        return xFormedOp;
+    }
+    //其他:index相等,不回傳重複操作
+    else{
+        let xFormedOp = new Op(tarUId, 'null', tarParentId, tarIndex, tarContent);
+        return xFormedOp;
+    }
+}
+
+function TEF(tarBlockOp, refBlockOp){
+    return tarBlockOp;
+}
+function TFE(tarBlockOp, refBlockOp){
+    return tarBlockOp;
+}
+
+function TEE(tarBlockOp, refBlockOp){
+    return tarBlockOp;
+}
+function TFF(tarBlockOp, refBlockOp){
+    return tarBlockOp;
+}
 usernameForm.addEventListener('submit', connect, true)
-messageForm.addEventListener('submit', send, true)
+//messageForm.addEventListener('submit', send, true)
+opForm.addEventListener('submit', send, true)

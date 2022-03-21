@@ -6,7 +6,10 @@ public class ChatMessage {
     private String sender;
     private MessageType type;
     private String sessionId;
-
+    private String parentId;
+    private int index;
+    private String opName;
+    private int remoteTS;
     public enum MessageType {
         CHAT, LEAVE, JOIN
     }
@@ -41,5 +44,37 @@ public class ChatMessage {
 
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
+    }
+
+    public String getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(String parentId) {
+        this.parentId = parentId;
+    }
+
+    public int getIndex() {
+        return index;
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
+    }
+
+    public String getOpName() {
+        return opName;
+    }
+
+    public void setOpName(String opName) {
+        this.opName = opName;
+    }
+
+    public int getRemoteTS() {
+        return remoteTS;
+    }
+
+    public void setRemoteTS(int remoteTS) {
+        this.remoteTS = remoteTS;
     }
 }

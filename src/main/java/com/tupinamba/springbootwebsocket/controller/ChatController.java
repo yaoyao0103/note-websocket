@@ -30,6 +30,7 @@ public class ChatController {
         //System.out.println(headerAccessor);
         dict.put(sender, sessionId);
         System.out.println(dict);
+
         chatMessage.setSessionId(sessionId);
         return chatMessage;
     }
@@ -38,7 +39,7 @@ public class ChatController {
     @MessageMapping("/chat.send")
     public void sendMessage(@Header("simpSessionId") String sessionId, @Payload ChatMessage chatMessage) {
         String sender = chatMessage.getSender();
-
+        System.out.println(chatMessage.getContent());
         /*
         // skip the OP
         if(remoteTs <= localTs) return;
@@ -76,7 +77,7 @@ public class ChatController {
                 simpMessagingTemplate.convertAndSendToUser(entry.getValue(), "/msg", chatMessage);
             }
         }
-        chatMessage.setSender("Me");
+        chatMessage.setContent("Ack");
         simpMessagingTemplate.convertAndSendToUser(sessionId, "/msg", chatMessage);
     }
 

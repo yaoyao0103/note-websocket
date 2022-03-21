@@ -29,9 +29,53 @@
 
 <div id="chat-page" class="hidden">
     <div class="chat-container">
-        <div class="chat-header">
-            <h2>Chatbox shortcut</h2>
+        <form id="opForm" name="opForm">
+            <div id="btns">
+                <label for="A_op">My Op:</label>
+                <select name="A_op" id="A_op">
+                    <option value="INSERT">INSERT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="EDIT">EDIT</option>
+                    <option value="FOCUS">FOCUS</option>
+                </select>
+
+                <label for="A_parent">parent</label>
+                <input type="text" id="A_parent" value="outerBlock"/>
+
+                <label for="A_index">index</label>
+                <input type="number" id="A_index"/>
+
+                <label for="A_content">content</label>
+                <input type="text" id="A_content" value="I am block I"/>
+
+
+                <!-- <input type="button" onclick = "reset()" value = "reset"/> -->
+                <button type="submit" class="primary">run</button>
+
+            </div>
+        </form>
+        <div id = "testData">
+            <div id = 'outerBlock'>
+                <p>Origin</p>
+                <div>I am block A</div>
+                <div>I am block B</div>
+                <div>I am block C</div>
+                <div>I am block D</div>
+                <div>I am block E</div>
+            </div>
         </div>
+        <hr/>
+        <div id = "clientA">
+            <div id = 'A_outerBlock'>
+                <p>My Block List</p>
+                <div>I am block A</div>
+                <div>I am block B</div>
+                <div>I am block C</div>
+                <div>I am block D</div>
+                <div>I am block E</div>
+            </div>
+        </div>
+
         <div class="connecting">Connecting to chat...</div>
         <ul id="messageArea">
 
