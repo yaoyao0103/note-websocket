@@ -42,7 +42,7 @@ public class ChatController {
         System.out.println(chatMessage.getContent());
         int remoteTs=chatMessage.getRemoteTS();
         // skip the OP
-        if(remoteTs <= localTs) return;
+        if(remoteTs < localTs) return;
         // handle this OP
         else{
             if(controllerState == ControllerState.LISTENING){
