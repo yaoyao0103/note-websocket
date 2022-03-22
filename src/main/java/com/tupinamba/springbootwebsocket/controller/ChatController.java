@@ -18,7 +18,7 @@ public class ChatController {
 
     Map<String, String> dict = new HashMap<>();
     ControllerState controllerState = ControllerState.LISTENING;
-
+    int localTs=0;
     @Autowired
     private SimpMessagingTemplate simpMessagingTemplate;
 
@@ -40,7 +40,7 @@ public class ChatController {
     public void sendMessage(@Header("simpSessionId") String sessionId, @Payload ChatMessage chatMessage) {
         String sender = chatMessage.getSender();
         System.out.println(chatMessage.getContent());
-        /*
+        int remoteTs=chatMessage.getRemoteTS();
         // skip the OP
         if(remoteTs <= localTs) return;
         // handle this OP
@@ -49,18 +49,15 @@ public class ChatController {
                 // start handle this OP
                 controllerState = ControllerState.PROCESSING;
                 // save this OP
-                saveOp(op);
-
-                //respond ACK msg to the client
-                simpMessagingTemplate.convertAndSendToUser(sessionId, "/msg", ACK);
-
-                // send the OP to the other clients
+                localTs+=1;
+                chatMessage.setRemoteTS(localTs);
                 for (Map.Entry<String, String> entry : dict.entrySet()) {
                     if( !sender.equals(entry.getKey()) ){
-                        simpMessagingTemplate.convertAndSendToUser(entry.getValue(), "/msg", op);
+                        simpMessagingTemplate.convertAndSendToUser(entry.getValue(), "/msg", chatMessage);
                     }
                 }
-                localTs += 1;
+                chatMessage.setContent("Ack");
+                simpMessagingTemplate.convertAndSendToUser(sessionId, "/msg", chatMessage);
                 //finish
                 controllerState = ControllerState.LISTENING;
              }
@@ -69,16 +66,6 @@ public class ChatController {
                return;
              }
         }
-        */
-
-
-        for (Map.Entry<String, String> entry : dict.entrySet()) {
-            if( !sender.equals(entry.getKey()) ){
-                simpMessagingTemplate.convertAndSendToUser(entry.getValue(), "/msg", chatMessage);
-            }
-        }
-        chatMessage.setContent("Ack");
-        simpMessagingTemplate.convertAndSendToUser(sessionId, "/msg", chatMessage);
     }
 
 }

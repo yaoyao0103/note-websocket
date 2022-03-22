@@ -162,7 +162,7 @@ function onMessageReceived(payload) {
             ClientState = ClientStateenum.synced;
         }
         else if(ClientState==ClientStateenum.AwaitingACK){
-
+            //Client waiting for ack & Controller send back ack
             if(message.content==='Ack') {
                 let A_op = document.getElementById("A_op").value;
                 let A_parent = document.getElementById("A_parent").value;
@@ -195,8 +195,107 @@ function onMessageReceived(payload) {
                 localTS = message.remoteTS;
                 ClientState = ClientStateenum.synced;
             }
-            else{
+            else { //Client waiting for ack & Controller send other client's operation
+                B_op = message.opName;
+                B_parent = message.parentId;
+                B_index = message.index;
+                B_content = message.content;
+                let A_op = document.getElementById("A_op").value;
+                let A_parent = document.getElementById("A_parent").value;
+                let A_index = parseInt(document.getElementById("A_index").value);
+                let A_content = document.getElementById("A_content").value;
+                let blockOpA = new Op(1, A_op, A_parent, A_index, A_content);
+                let blockOpB = new Op(1, B_op, B_parent, B_index, B_content);
+                let newNodeA;
+                let newTextNodeA;
+                let nodeOfClientA;
+                let newNodeB;
+                let newTextNodeB;
+                let nodeOfClientB;
+                let children;
+                let xFormedOpA; // A'
+                let xFormedOpB; // B'
+                if (A_op === 'INSERT') {
+                    if (B_op === 'INSERT') {
+                        xFormedOpA = TII(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'DELETE') {
+                        xFormedOpA = TID(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'EDIT') {
+                        xFormedOpA = TIE(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'FOCUS') {
+                        xFormedOpA = TIF(blockOpA, blockOpB); // get A'
+                    }
+                } else if (A_op === 'DELETE') {
+                    if (B_op === 'INSERT') {
+                        xFormedOpA = TDI(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'DELETE') {
+                        xFormedOpA = TDD(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'EDIT') {
+                        xFormedOpA = TDE(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'FOCUS') {
+                        xFormedOpA = TDF(blockOpA, blockOpB); // get A'
+                    }
+                } else if (A_op === 'EDIT') {
+                    if (B_op === 'INSERT') {
+                        xFormedOpA = TEI(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'DELETE') {
+                        xFormedOpA = TED(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'EDIT') {
+                        xFormedOpA = TEE(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'FOCUS') {
+                        xFormedOpA = TEF(blockOpA, blockOpB); // get A'
+                    }
+                } else if (A_op === 'FOCUS') {
+                    if (B_op === 'INSERT') {
+                        xFormedOpA = TFI(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'DELETE') {
+                        xFormedOpA = TFD(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'EDIT') {
+                        xFormedOpA = TFE(blockOpA, blockOpB); // get A'
+                    } else if (B_op === 'FOCUS') {
+                        xFormedOpA = TFF(blockOpA, blockOpB); // get A'
+                    }
+                }
+                //This test version doesn't change local before receive ack
+                if(blockOpB.opName === 'INSERT'){
+                    //create new node
+                    newNodeB = document.createElement('div');
+                    newTextNodeB = document.createTextNode(B_content);
+                    newNodeB.appendChild(newTextNodeB);
+                    //apply locally
+                    nodeOfClientB = document.getElementById('A_' + B_parent);
+                    children = nodeOfClientB.children;
+                    nodeOfClientB.insertBefore(newNodeA, children[B_index]);
+                }
+                else if(blockOpB.opName === 'DELETE'){
+                    nodeOfClientB = document.getElementById('A_' + B_parent);
+                    children = nodeOfClientB.children;
+                    nodeOfClientB.removeChild(children[B_index]);
+                }
+                else if(blockOpB.opName === 'EDIT'){
+                    nodeOfClientB = document.getElementById('A_' + B_parent);
+                    children = nodeOfClientB.children;
+                    children[B_index].innerHTML = B_content;
+                }
+                //set new localTS after accept other operations
+                localTS=message.remoteTS;
+                //Sending new message after OT
+                if (stompClient) {
+                    console.log('111');
+                    var chatMessage = {
+                        sender: username,
+                        opName: A_op,
+                        index: A_index,
+                        content: A_content,
+                        remoteTS: localTS,
+                        parentId: A_parent,
+                        type: 'CHAT'
+                    };
 
+                    stompClient.send("/app/chat.send", {}, JSON.stringify(chatMessage));
+                    messageInput.value = '';
+                }
+                ClientState = ClientStateenum.AwaitingACK;
             }
         }
 
