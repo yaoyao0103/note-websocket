@@ -12,27 +12,31 @@ var connectingElement = document.querySelector('.connecting');
 var stompClient = null;
 var username = null;
 var sessionId = null;
+var localTS = 0;
+var remoteTS = 0;
+var localOp = null;
+var remoteOp = null;
+var localOpPrime = null;
+var remoteOpPrime = null;
+var opBuffer = new Array();
+var CtoS_Msg = null;
+var StoC_Msg = null;
 
 var colors = [
     '#2196F3', '#32c787', '#00BCD4', '#ff5652',
     '#ffc107', '#ff85af', '#FF9800', '#39bbb0'
 ];
-var localTS=0;
-var remoteTS=0;
-var B_op= null;
-var B_parent= null;
-var B_index= null;
-var B_content= null;
+
 class Op {
-    constructor(UId, opName, parentId, index, content){
-        this.UId = UId;
-        this.opName = opName;
+    constructor(sessionId, type, parentId, index, content){
+        this.UId = sessionId;
+        this.type = type;
         this.parentId = parentId;
         this.index = index;
         this.content = content;
     }
 }
-const ClientStateenum = {"synced":1, "AwaitingACK":2, "AwaitingWithBuffer":3}
+const ClientStateEnum = {"Synced":1, "AwaitingACK":2, "AwaitingWithBuffer":3}
 Object.freeze(ClientState);
 
 var ClientState=null;
@@ -67,7 +71,7 @@ function onConnected() {
     )
 
     connectingElement.classList.add('hidden');
-    ClientState=ClientStateenum.synced;
+    ClientState=ClientStateEnum.Synced;
 }
 
 
@@ -76,264 +80,330 @@ function onError(error) {
     connectingElement.style.color = 'red';
 }
 
+function applyOp(op){
+    let newNode;
+    let newTextNode;
+    let nodeOfClient;
+    let children;
+    if (op.type === 'INSERT') {
+            //create new node
+            newNode = document.createElement('div');
+            newTextNode = document.createTextNode(op.content);
+            newNode.appendChild(newTextNodeA);
+            //apply locally
+            nodeOfClient = document.getElementById('A_' + op.parentId);
+            children = nodeOfClient.children;
+            nodeOfClient.insertBefore(newNode, children[op.index]);
+    }
+    else if (op.type === 'DELETE') {
+        //save origin content
+        nodeOfClient = document.getElementById('A_' + op.parentId);
+        children = nodeOfClient.children;
+        nodeOfClient.removeChild(children[op.index]);
+
+    }
+    else if (op.type === 'EDIT'){
+        //save origin content
+        nodeOfClient = document.getElementById('A_' + op.parentId);
+        children = nodeOfClient.children;
+        children[op.index].innerHTML = op.content;
+    }
+}
+
+function OT(localOp, remoteOp){
+    let localType = localOp.type;
+    let remoteType = remoteOp.type;
+    if(localType === 'INSERT'){
+        if(remoteType === 'INSERT'){
+            localOpPrime = TII(localOp, remoteOp); // get A'
+            remoteOpPrime = TII(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'DELETE'){
+            localOpPrime = TID(localOp, remoteOp); // get A'
+            remoteOpPrime = TDI(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'EDIT'){
+            localOpPrime = TIE(localOp, remoteOp); // get A'
+            remoteOpPrime = TEI(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'FOCUS'){
+            localOpPrime = TIF(localOp, remoteOp); // get A'
+            remoteOpPrime = TFI(remoteOp, localOp); // get B'
+        }
+    }
+    else if(localType === 'DELETE'){
+        if(remoteType === 'INSERT'){
+            localOpPrime = TDI(localOp, remoteOp); // get A'
+            remoteOpPrime = TID(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'DELETE'){
+            localOpPrime = TDD(localOp, remoteOp); // get A'
+            remoteOpPrime = TDD(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'EDIT'){
+            localOpPrime = TDE(localOp, remoteOp); // get A'
+            remoteOpPrime = TED(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'FOCUS'){
+            localOpPrime = TDF(localOp, remoteOp); // get A'
+            remoteOpPrime = TFD(remoteOp, localOp); // get B'
+        }
+    }
+    else if(localType === 'EDIT'){
+        if(remoteType === 'INSERT'){
+            localOpPrime = TEI(localOp, remoteOp); // get A'
+            remoteOpPrime = TIE(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'DELETE'){
+            localOpPrime = TED(localOp, remoteOp); // get A'
+            remoteOpPrime = TDE(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'EDIT'){
+            localOpPrime = TEE(localOp, remoteOp); // get A'
+            remoteOpPrime = TEE(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'FOCUS'){
+            localOpPrime = TEF(localOp, remoteOp); // get A'
+            remoteOpPrime = TFE(remoteOp, localOp); // get B'
+        }
+    }
+    else if(localType === 'FOCUS'){
+        if(remoteType === 'INSERT'){
+            localOpPrime = TFI(localOp, remoteOp); // get A'
+            remoteOpPrime = TIF(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'DELETE'){
+            localOpPrime = TFD(localOp, remoteOp); // get A'
+            remoteOpPrime = TDF(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'EDIT'){
+            localOpPrime = TFE(localOp, remoteOp); // get A'
+            remoteOpPrime = TEF(remoteOp, localOp); // get B'
+        }
+        else if(remoteType === 'FOCUS'){
+            localOpPrime = TFF(localOp, remoteOp); // get A'
+            remoteOpPrime = TFF(remoteOp, localOp); // get B'
+        }
+    }
+    return [localOpPrime, remoteOpPrime];
+}
 
 function send(event) {
-    let A_op = document.getElementById("A_op").value;
-    let A_parent = document.getElementById("A_parent").value;
-    let A_index = parseInt(document.getElementById("A_index").value);
-    let A_content = document.getElementById("A_content").value;
-    let blockOpA = new Op(1, A_op, A_parent, A_index, A_content);
-    let newNodeA;
-    let newTextNodeA;
-    let nodeOfClientA;
-    let children;
-
-    if (blockOpA.opName === 'INSERT') {
-        //create new node
-        newNodeA = document.createElement('div');
-        newTextNodeA = document.createTextNode(A_content);
-        newNodeA.appendChild(newTextNodeA);
-        //apply locally
-        nodeOfClientA = document.getElementById('A_' + A_parent);
-        children = nodeOfClientA.children;
-        nodeOfClientA.insertBefore(newNodeA, children[A_index]);
-    } else if (blockOpA.opName === 'DELETE') {
-        //save origin content
-        nodeOfClientA = document.getElementById('A_' + A_parent);
-        children = nodeOfClientA.children;
-        nodeOfClientA.removeChild(children[A_index]);
-
-    } else if (blockOpA.opName === 'EDIT'){
-        //save origin content
-        nodeOfClientA = document.getElementById('A_' + A_parent);
-        children = nodeOfClientA.children;
-        children[A_index].innerHTML = A_content;
-    }
+    // get Op info
+    let type = document.getElementById("A_op").value;
+    let parentId = document.getElementById("A_parent").value;
+    let index = parseInt(document.getElementById("A_index").value);
+    let content = document.getElementById("A_content").value;
 
 
-    if(ClientState==ClientStateenum.synced) {
+    // ---------------------- state: Synced --------------------
+    if(ClientState == ClientStateEnum.Synced) {
+        /***** ApplyRemoteOp *****/
+        // step 1: set localOp to the Op in the received LocalChange event
+        localOp = new Op(sessionId, type, parentId, index, content);
 
-        var messageContent = messageInput.value.trim();
-        var opName = document.getElementById("A_op");
-        var index = document.getElementById("A_index");
-        var parentId = document.getElementById("A_parent");
-        var content = document.getElementById("A_content");
+        // step 2: increment localTS
+        localTS += 1;
 
+        // step 3: call applyOp(localOp)
+        applyOp(localOp);
+
+        // step 4: send message to Controller
         if (stompClient) {
-            console.log('111');
-            var chatMessage = {
+            CtoS_Msg = {
                 sender: username,
-                opName: opName.value,
-                index: index.value,
-                content: content.value,
-                remoteTS: localTS,
-                parentId: parentId.value,
+                TS: localTS,
+                Op: localOp,
                 type: 'CHAT'
             };
-
-            stompClient.send("/app/chat.send", {}, JSON.stringify(chatMessage));
-            messageInput.value = '';
+            stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
         }
-        ClientState = ClientStateenum.AwaitingACK;
+        // buffer is empty => AwaitingACK state
+        if(localOpBuffer.length <= 0){
+            ClientState = ClientStateEnum.AwaitingACK;
+        }
+        // buffer is not empty => AwaitingWithBuffer state
+        else{
+            ClientState = ClientStateEnum.AwaitingWithBuffer;
+        }
         event.preventDefault();
+    }
+    // ---------------------- state: AwaitingACK or AwaitingWithBuffer --------------------
+    else {
+        /***** ApplyBufferLocalOp *****/
+        // step 1: add Op from the received LocalChange event to opBuffer
+        opBuffer.unshift(localOp);
 
+        // step 2: call applyOp(opBuffer.last)
+        let lastOp = onBuffer.pop();
+        applyOp(lastOp);
     }
 }
 
 
 function onMessageReceived(payload) {
 
-    var message = JSON.parse(payload.body);
-
+    StoC_msg = JSON.parse(payload.body);
     var messageElement = document.createElement('li');
 
-    if(message.type === 'JOIN') {
-        if(message.sender === username){
-            sessionId = message.sessionId;
+    // join msg
+    if(StoC_msg.type === 'JOIN') {
+        if(StoC_msg.sender === username){
+            sessionId = StoC_msg.sessionId;
             stompClient.subscribe('/user/' + sessionId + '/msg', onMessageReceived);
         }
         messageElement.classList.add('event-message');
-        message.content = message.sender + ' joined!';
-    } else if (message.type === 'LEAVE') {
+        StoC_msg.content = message.sender + ' joined!';
+    }
+
+    // leave msg
+    else if (StoC_msg.type === 'LEAVE') {
         messageElement.classList.add('event-message');
-        message.content = message.sender + ' left!';
-    } else {
-        if (ClientState==ClientStateenum.synced){
-            let A_op = message.opName;
-            let A_parent= message.parentId;
-            let A_index = message.index;
-            let A_content = message.content;
-            console.log(A_index);
-            let blockOpA = new Op(1, A_op, A_parent, A_index, A_content);
-            let newNodeA;
-            let newTextNodeA;
-            let nodeOfClientA;
-            let children;
-            if(blockOpA.opName === 'INSERT'){
-                //create new node
-                newNodeA = document.createElement('div');
-                newTextNodeA = document.createTextNode(A_content);
-                newNodeA.appendChild(newTextNodeA);
-                //apply locally
-                nodeOfClientA = document.getElementById('A_' + A_parent);
-                children = nodeOfClientA.children;
-                nodeOfClientA.insertBefore(newNodeA, children[A_index]);
-            }
-            else if(blockOpA.opName === 'DELETE'){
-                nodeOfClientA = document.getElementById('A_' + A_parent);
-                children = nodeOfClientA.children;
-                nodeOfClientA.removeChild(children[A_index]);
-            }
-            else if(blockOpA.opName === 'EDIT'){
-                nodeOfClientA = document.getElementById('A_' + A_parent);
-                children = nodeOfClientA.children;
-                children[A_index].innerHTML = A_content;
-            }
-            localTS=message.remoteTS;
-            ClientState = ClientStateenum.synced;
+        StoC_msg.content = StoC_msg.sender + ' left!';
+    }
+
+    // StoC_msg
+    else {
+        //--------------------------- State: Synced -----------------------------
+        if (ClientState==ClientStateEnum.Synced){
+            /***** ApplyRemoteOp *****/
+            // step 1: set remoteTS and remoteOp to the values within the received StoC Msg event
+            remoteOp = message.Op;
+            remoteTS = message.TS;
+
+            // step 2: set localTS to the value of remoteTS
+            localTS = remoteTS;
+
+            // step 3: call applyOp(remoteOp)
+            applyOp(remoteOp);
+
+            ClientState = ClientStateEnum.Synced;
         }
-        else if(ClientState==ClientStateenum.AwaitingACK){
-            //Client waiting for ack & Controller send back ack
-            if(message.content==='Ack') {
-                localTS = message.remoteTS;
-                ClientState = ClientStateenum.synced;
+        //-------------------------- State: AwaitingACK ------------------------------
+        else if(ClientState == ClientStateEnum.AwaitingACK){
+            // receive ACK
+            if(StoC_msg.type === 'ACK') {
+                ClientState = ClientStateEnum.Synced;
             }
-            else { //Client waiting for ack & Controller send other client's operation
-                B_op = message.opName;
-                B_parent = message.parentId;
-                B_index = message.index;
-                B_content = message.content;
-                let A_op = document.getElementById("A_op").value;
-                let A_parent = document.getElementById("A_parent").value;
-                let A_index = parseInt(document.getElementById("A_index").value);
-                let A_content = document.getElementById("A_content").value;
-                let blockOpA = new Op(1, A_op, A_parent, A_index, A_content);
-                let blockOpB = new Op(1, B_op, B_parent, B_index, B_content);
-                let newNodeA;
-                let newTextNodeA;
-                let nodeOfClientA;
-                let newNodeB;
-                let newTextNodeB;
-                let nodeOfClientB;
-                let children;
-                let xFormedOpA; // A'
-                let xFormedOpB; // B'
+            // receive remote Op
+            /***** ApplyRemoteOpWithoutACK *****/
+            else {
+                // step 1: set localTS to remoteTS
+                remoteTS = localTS;
+
+                // step 2: increment localTS
+                localTS += 1;
+
+                // step 3: set remoteTS and remoteOp to the values within the received StoC Msg event
+                remoteTS = StoC_msg.TS
+                remoteOp = StoC_msg.Op;
+
+                // step 4: obtain remoteOpPrime and localOpPrime by evaluating xform(remoteOp, localOp)
+                let type = document.getElementById("A_op").value;
+                let parentId = document.getElementById("A_parent").value;
+                let index = parseInt(document.getElementById("A_index").value);
+                let content = document.getElementById("A_content").value;
+                localOp = new Op(sessionId, type, parentId, index, content);
                 //Operation Transformation
-                if(A_op === 'INSERT'){
-                    if(B_op === 'INSERT'){
-                        xFormedOpA = TII(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TII(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'DELETE'){
-                        xFormedOpA = TID(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TDI(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'EDIT'){
-                        xFormedOpA = TIE(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TEI(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'FOCUS'){
-                        xFormedOpA = TIF(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TFI(blockOpB, blockOpA); // get B'
-                    }
-                }
-                else if(A_op === 'DELETE'){
-                    if(B_op === 'INSERT'){
-                        xFormedOpA = TDI(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TID(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'DELETE'){
-                        xFormedOpA = TDD(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TDD(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'EDIT'){
-                        xFormedOpA = TDE(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TED(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'FOCUS'){
-                        xFormedOpA = TDF(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TFD(blockOpB, blockOpA); // get B'
-                    }
-                }
-                else if(A_op === 'EDIT'){
-                    if(B_op === 'INSERT'){
-                        xFormedOpA = TEI(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TIE(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'DELETE'){
-                        xFormedOpA = TED(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TDE(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'EDIT'){
-                        xFormedOpA = TEE(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TEE(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'FOCUS'){
-                        xFormedOpA = TEF(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TFE(blockOpB, blockOpA); // get B'
-                    }
-                }
-                else if(A_op === 'FOCUS'){
-                    if(B_op === 'INSERT'){
-                        xFormedOpA = TFI(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TIF(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'DELETE'){
-                        xFormedOpA = TFD(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TDF(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'EDIT'){
-                        xFormedOpA = TFE(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TEF(blockOpB, blockOpA); // get B'
-                    }
-                    else if(B_op === 'FOCUS'){
-                        xFormedOpA = TFF(blockOpA, blockOpB); // get A'
-                        xFormedOpB = TFF(blockOpB, blockOpA); // get B'
-                    }
-                }
-                //This test version doesn't change local before receive ack
-                if(xFormedOpB.opName === 'INSERT'){
-                    //create new node
-                    newNodeB = document.createElement('div');
-                    newTextNodeB = document.createTextNode(xFormedOpB.content);
-                    newNodeB.appendChild(newTextNodeB);
-                    //apply locally
-                    nodeOfClientB = document.getElementById('A_' + xFormedOpB.parentId);
-                    children = nodeOfClientB.children;
-                    nodeOfClientB.insertBefore(newNodeB, children[xFormedOpB.index]);
-                }
-                else if(xFormedOpB.opName === 'DELETE'){
-                    nodeOfClientB = document.getElementById('A_' + xFormedOpB.parentId);
-                    children = nodeOfClientB.children;
-                    nodeOfClientB.removeChild(children[xFormedOpB.index]);
-                }
-                else if(xFormedOpB.opName === 'EDIT'){
-                    nodeOfClientB = document.getElementById('A_' + xFormedOpB.parentId);
-                    children = nodeOfClientB.children;
-                    children[xFormedOpB.index].innerHTML = xFormedOpB.content;
-                }
-                //set new localTS after accept other operations
-                localTS=message.remoteTS;
-                //Sending new message after OT
+                [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
+
+                // step 5: call applyOp(remoteOpPrime)
+                applyOp(remoteOpPrime);
+
+                // step 6: set localOp to the value of localOpPrime
+                localOp = localOpPrime;
+
+                // step 7: send localOp to Controller
                 if (stompClient) {
-                    console.log('111');
-                    var chatMessage = {
+                    CtoS_Msg = {
                         sender: username,
-                        opName: xFormedOpA.opName,
-                        index: xFormedOpA.index,
-                        content: xFormedOpA.content,
-                        remoteTS: localTS,
-                        parentId: xFormedOpA.parentId,
+                        Op: localOp,
+                        TS: localTS,
                         type: 'CHAT'
                     };
 
-                    stompClient.send("/app/chat.send", {}, JSON.stringify(chatMessage));
-                    messageInput.value = '';
+                    stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
                 }
-                ClientState = ClientStateenum.AwaitingACK;
+                if(localOpBuffer.length <= 0){
+                    ClientState = ClientStateEnum.AwaitingACK;
+                }
+                // buffer is not empty => AwaitingWithBuffer state
+                else{
+                    ClientState = ClientStateEnum.AwaitingWithBuffer;
+                }
+            }
+        }
+        //-------------------------- State: AwaitingWithBuffer ------------------------------
+        else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
+            // receive ACK
+            /***** CreatingLocalOpFromBuffer *****/
+            if(StoC_msg.type === 'ACK') {
+                // step 1: increment localTS
+                localTS += 1;
+
+                // step 2: set localOp to opBuffer.first
+                opBuffer.unshift(localOp);
+
+                // step 3: remove opBuffer.first from opBuffer
+                opBuffer.pop();
+
+                if(localOpBuffer.length <= 0){
+                    ClientState = ClientStateEnum.AwaitingACK;
+                }
+                // buffer is not empty => AwaitingWithBuffer state
+                else{
+                    ClientState = ClientStateEnum.AwaitingWithBuffer;
+                }
+            }
+            /***** ApplyRemoteOpWithBuffer *****/
+            else if(StoC_msg.type === 'ACK') {
+                // step 1: set localTS to remoteTS
+                remoteTS = localTS;
+
+                // step 2: increment localTS
+                localTS += 1;
+
+                // step 3: obtain remoteOpPrime[0] by evaluating xform(remoteOp, localOp)
+                let type = document.getElementById("A_op").value;
+                let parentId = document.getElementById("A_parent").value;
+                let index = parseInt(document.getElementById("A_index").value);
+                let content = document.getElementById("A_content").value;
+                localOp = new Op(sessionId, type, parentId, index, content);
+                //Operation Transformation
+                [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
+
+                 //***************** doto
+                // step 4: obtain remoteOpPrime[i+1] by evaluating xform(remoteOpPrime[i], opBuffer[i])
+                for(let op of opBuffer){
+                    [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
+                }
+
+                // step 5: call applyOp(remoteOpPrime.last)
+                let lastOp = opBuffer.pop();
+                applyOp(lastOp);
+
+                // step 6: obtain localOpPrime by evaluating xform(localOp, remoteOp)
+                [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
+
+                // step 7: set localOp to the value of localOpPrime
+                localOp = localOpPrime;
+
+                // step 8: obtain opBuffer[i] by evaluating xform(opBuffer[i], remoteOpPrime[i])
+                for(let op of opBuffer){
+                    [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
+                }
+
+                if(localOpBuffer.length <= 0){
+                    ClientState = ClientStateEnum.AwaitingACK;
+                }
+                // buffer is not empty => AwaitingWithBuffer state
+                else{
+                    ClientState = ClientStateEnum.AwaitingWithBuffer;
+                }
             }
         }
 
+        // show message on website
         messageElement.classList.add('chat-message');
 
         var avatarElement = document.createElement('i');
@@ -387,7 +457,7 @@ function TII(tarBlockOp, refBlockOp){
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
-    let tarOp = tarBlockOp.opName;
+    let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     if(tarParentId != refParentId || tarIndex < refIndex || (tarParentId == refParentId && tarIndex == refIndex && tarUId > refUId)){
         return tarBlockOp;
@@ -405,7 +475,7 @@ function TID(tarBlockOp, refBlockOp){
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
-    let tarOp = tarBlockOp.opName;
+    let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     if(contain(refParentId, refIndex, tarParentId, tarIndex)){
         let xFormedOp = new Op(tarUId, 'null', tarParentId, tarIndex, tarContent);
@@ -428,7 +498,7 @@ function TDI(tarBlockOp, refBlockOp){
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
-    let tarOp = tarBlockOp.opName;
+    let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     // 若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作 (因為目標包含參考不需要改變，所以不多寫出來)
     if(tarParentId != refParentId || tarIndex < refIndex)
@@ -450,7 +520,7 @@ function TEI(tarBlockOp, refBlockOp){
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
-    let tarOp = tarBlockOp.opName;
+    let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     //若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作
     if(tarParentId != refParentId || tarIndex < refIndex)
@@ -472,7 +542,7 @@ function TFI(tarBlockOp, refBlockOp){
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
-    let tarOp = tarBlockOp.opName;
+    let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     //目標parent包住參考parent，目標操作直接執行
     if(contain(tarParentId,refParentId))
@@ -497,7 +567,7 @@ function TED(tarBlockOp, refBlockOp){
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
-    let tarOp = tarBlockOp.opName;
+    let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     //目標parent包住參考parent，不會有這個操作，因為會鎖住
     //參考parent包住目標parent，不會有這個操作，因為會鎖住
@@ -522,7 +592,7 @@ function TFD(tarBlockOp, refBlockOp){
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
-    let tarOp = tarBlockOp.opName;
+    let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     //其他(目標與參考index相等)，不會有這種操作，因為要先focus
     if(tarParentId != refParentId || tarIndex <= refIndex){
@@ -541,7 +611,7 @@ function TDD(tarBlockOp, refBlockOp){
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
-    let tarOp = tarBlockOp.opName;
+    let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     // 目標包住參考 目標操作則不改變
     if(contain(tarParentId,tarIndex,refParentId,refIndex)) return tarBlockOp;
