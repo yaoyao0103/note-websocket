@@ -23,7 +23,6 @@ var B_op= null;
 var B_parent= null;
 var B_index= null;
 var B_content= null;
-var tempContent=null;
 class Op {
     constructor(UId, opName, parentId, index, content){
         this.UId = UId;
@@ -100,14 +99,12 @@ function send(event) {
         nodeOfClientA.insertBefore(newNodeA, children[A_index]);
     } else if (blockOpA.opName === 'DELETE') {
         //save origin content
-        tempContent=A_content;
         nodeOfClientA = document.getElementById('A_' + A_parent);
         children = nodeOfClientA.children;
         nodeOfClientA.removeChild(children[A_index]);
 
     } else if (blockOpA.opName === 'EDIT'){
         //save origin content
-        tempContent=A_content;
         nodeOfClientA = document.getElementById('A_' + A_parent);
         children = nodeOfClientA.children;
         children[A_index].innerHTML = A_content;
@@ -221,29 +218,6 @@ function onMessageReceived(payload) {
                 let children;
                 let xFormedOpA; // A'
                 let xFormedOpB; // B'
-                //Recover origin content
-                // if(blockOpA.opName === 'INSERT'){
-                //     //Delete operation back
-                //     nodeOfClientA = document.getElementById('A_' + A_parent);
-                //     children = nodeOfClientA.children;
-                //     nodeOfClientA.removeChild(children[A_index]);
-                // }
-                // else if(blockOpA.opName === 'DELETE'){
-                //     //Insert operation back
-                //     //create new node
-                //     newNodeA = document.createElement('div');
-                //     newTextNodeA = document.createTextNode(tempContent);
-                //     newNodeA.appendChild(newTextNodeA);
-                //     //apply locally
-                //     nodeOfClientA = document.getElementById('A_' + A_parent);
-                //     children = nodeOfClientA.children;
-                //     nodeOfClientA.insertBefore(newNodeA, children[A_index]);
-                // }
-                // else if(blockOpA.opName === 'EDIT'){
-                //     nodeOfClientA = document.getElementById('A_' + A_parent);
-                //     children = nodeOfClientA.children;
-                //     children[A_index].innerHTML = tempContent;
-                // }
                 //Operation Transformation
                 if(A_op === 'INSERT'){
                     if(B_op === 'INSERT'){
