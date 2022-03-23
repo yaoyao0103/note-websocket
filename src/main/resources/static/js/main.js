@@ -23,7 +23,7 @@ var B_op= null;
 var B_parent= null;
 var B_index= null;
 var B_content= null;
-
+var tempContent=null;
 class Op {
     constructor(UId, opName, parentId, index, content){
         this.UId = UId;
@@ -79,6 +79,40 @@ function onError(error) {
 
 
 function send(event) {
+    let A_op = document.getElementById("A_op").value;
+    let A_parent = document.getElementById("A_parent").value;
+    let A_index = parseInt(document.getElementById("A_index").value);
+    let A_content = document.getElementById("A_content").value;
+    let blockOpA = new Op(1, A_op, A_parent, A_index, A_content);
+    let newNodeA;
+    let newTextNodeA;
+    let nodeOfClientA;
+    let children;
+
+    if (blockOpA.opName === 'INSERT') {
+        //create new node
+        newNodeA = document.createElement('div');
+        newTextNodeA = document.createTextNode(A_content);
+        newNodeA.appendChild(newTextNodeA);
+        //apply locally
+        nodeOfClientA = document.getElementById('A_' + A_parent);
+        children = nodeOfClientA.children;
+        nodeOfClientA.insertBefore(newNodeA, children[A_index]);
+    } else if (blockOpA.opName === 'DELETE') {
+        //save origin content
+        tempContent=A_content;
+        nodeOfClientA = document.getElementById('A_' + A_parent);
+        children = nodeOfClientA.children;
+        nodeOfClientA.removeChild(children[A_index]);
+
+    } else if (blockOpA.opName === 'EDIT'){
+        //save origin content
+        tempContent=A_content;
+        nodeOfClientA = document.getElementById('A_' + A_parent);
+        children = nodeOfClientA.children;
+        children[A_index].innerHTML = A_content;
+    }
+
 
     if(ClientState==ClientStateenum.synced) {
 
@@ -164,34 +198,6 @@ function onMessageReceived(payload) {
         else if(ClientState==ClientStateenum.AwaitingACK){
             //Client waiting for ack & Controller send back ack
             if(message.content==='Ack') {
-                let A_op = document.getElementById("A_op").value;
-                let A_parent = document.getElementById("A_parent").value;
-                let A_index = parseInt(document.getElementById("A_index").value);
-                let A_content = document.getElementById("A_content").value;
-                let blockOpA = new Op(1, A_op, A_parent, A_index, A_content);
-                let newNodeA;
-                let newTextNodeA;
-                let nodeOfClientA;
-                let children;
-
-                if (blockOpA.opName === 'INSERT') {
-                    //create new node
-                    newNodeA = document.createElement('div');
-                    newTextNodeA = document.createTextNode(A_content);
-                    newNodeA.appendChild(newTextNodeA);
-                    //apply locally
-                    nodeOfClientA = document.getElementById('A_' + A_parent);
-                    children = nodeOfClientA.children;
-                    nodeOfClientA.insertBefore(newNodeA, children[A_index]);
-                } else if (blockOpA.opName === 'DELETE') {
-                    nodeOfClientA = document.getElementById('A_' + A_parent);
-                    children = nodeOfClientA.children;
-                    nodeOfClientA.removeChild(children[A_index]);
-                } else if (blockOpA.opName === 'EDIT') {
-                    nodeOfClientA = document.getElementById('A_' + A_parent);
-                    children = nodeOfClientA.children;
-                    children[A_index].innerHTML = A_content;
-                }
                 localTS = message.remoteTS;
                 ClientState = ClientStateenum.synced;
             }
@@ -215,49 +221,104 @@ function onMessageReceived(payload) {
                 let children;
                 let xFormedOpA; // A'
                 let xFormedOpB; // B'
-                if (A_op === 'INSERT') {
-                    if (B_op === 'INSERT') {
+                //Recover origin content
+                // if(blockOpA.opName === 'INSERT'){
+                //     //Delete operation back
+                //     nodeOfClientA = document.getElementById('A_' + A_parent);
+                //     children = nodeOfClientA.children;
+                //     nodeOfClientA.removeChild(children[A_index]);
+                // }
+                // else if(blockOpA.opName === 'DELETE'){
+                //     //Insert operation back
+                //     //create new node
+                //     newNodeA = document.createElement('div');
+                //     newTextNodeA = document.createTextNode(tempContent);
+                //     newNodeA.appendChild(newTextNodeA);
+                //     //apply locally
+                //     nodeOfClientA = document.getElementById('A_' + A_parent);
+                //     children = nodeOfClientA.children;
+                //     nodeOfClientA.insertBefore(newNodeA, children[A_index]);
+                // }
+                // else if(blockOpA.opName === 'EDIT'){
+                //     nodeOfClientA = document.getElementById('A_' + A_parent);
+                //     children = nodeOfClientA.children;
+                //     children[A_index].innerHTML = tempContent;
+                // }
+                //Operation Transformation
+                if(A_op === 'INSERT'){
+                    if(B_op === 'INSERT'){
                         xFormedOpA = TII(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'DELETE') {
+                        xFormedOpB = TII(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'DELETE'){
                         xFormedOpA = TID(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'EDIT') {
+                        xFormedOpB = TDI(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'EDIT'){
                         xFormedOpA = TIE(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'FOCUS') {
+                        xFormedOpB = TEI(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'FOCUS'){
                         xFormedOpA = TIF(blockOpA, blockOpB); // get A'
+                        xFormedOpB = TFI(blockOpB, blockOpA); // get B'
                     }
-                } else if (A_op === 'DELETE') {
-                    if (B_op === 'INSERT') {
+                }
+                else if(A_op === 'DELETE'){
+                    if(B_op === 'INSERT'){
                         xFormedOpA = TDI(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'DELETE') {
+                        xFormedOpB = TID(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'DELETE'){
                         xFormedOpA = TDD(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'EDIT') {
+                        xFormedOpB = TDD(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'EDIT'){
                         xFormedOpA = TDE(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'FOCUS') {
+                        xFormedOpB = TED(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'FOCUS'){
                         xFormedOpA = TDF(blockOpA, blockOpB); // get A'
+                        xFormedOpB = TFD(blockOpB, blockOpA); // get B'
                     }
-                } else if (A_op === 'EDIT') {
-                    if (B_op === 'INSERT') {
+                }
+                else if(A_op === 'EDIT'){
+                    if(B_op === 'INSERT'){
                         xFormedOpA = TEI(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'DELETE') {
-                        xFormedOpA = TED(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'EDIT') {
-                        xFormedOpA = TEE(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'FOCUS') {
-                        xFormedOpA = TEF(blockOpA, blockOpB); // get A'
+                        xFormedOpB = TIE(blockOpB, blockOpA); // get B'
                     }
-                } else if (A_op === 'FOCUS') {
-                    if (B_op === 'INSERT') {
+                    else if(B_op === 'DELETE'){
+                        xFormedOpA = TED(blockOpA, blockOpB); // get A'
+                        xFormedOpB = TDE(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'EDIT'){
+                        xFormedOpA = TEE(blockOpA, blockOpB); // get A'
+                        xFormedOpB = TEE(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'FOCUS'){
+                        xFormedOpA = TEF(blockOpA, blockOpB); // get A'
+                        xFormedOpB = TFE(blockOpB, blockOpA); // get B'
+                    }
+                }
+                else if(A_op === 'FOCUS'){
+                    if(B_op === 'INSERT'){
                         xFormedOpA = TFI(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'DELETE') {
+                        xFormedOpB = TIF(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'DELETE'){
                         xFormedOpA = TFD(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'EDIT') {
+                        xFormedOpB = TDF(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'EDIT'){
                         xFormedOpA = TFE(blockOpA, blockOpB); // get A'
-                    } else if (B_op === 'FOCUS') {
+                        xFormedOpB = TEF(blockOpB, blockOpA); // get B'
+                    }
+                    else if(B_op === 'FOCUS'){
                         xFormedOpA = TFF(blockOpA, blockOpB); // get A'
+                        xFormedOpB = TFF(blockOpB, blockOpA); // get B'
                     }
                 }
                 //This test version doesn't change local before receive ack
-                if(blockOpB.opName === 'INSERT'){
+                if(xFormedOpB.opName === 'INSERT'){
                     //create new node
                     newNodeB = document.createElement('div');
                     newTextNodeB = document.createTextNode(B_content);
@@ -267,12 +328,12 @@ function onMessageReceived(payload) {
                     children = nodeOfClientB.children;
                     nodeOfClientB.insertBefore(newNodeB, children[B_index]);
                 }
-                else if(blockOpB.opName === 'DELETE'){
+                else if(xFormedOpB.opName === 'DELETE'){
                     nodeOfClientB = document.getElementById('A_' + B_parent);
                     children = nodeOfClientB.children;
                     nodeOfClientB.removeChild(children[B_index]);
                 }
-                else if(blockOpB.opName === 'EDIT'){
+                else if(xFormedOpB.opName === 'EDIT'){
                     nodeOfClientB = document.getElementById('A_' + B_parent);
                     children = nodeOfClientB.children;
                     children[B_index].innerHTML = B_content;
@@ -284,11 +345,11 @@ function onMessageReceived(payload) {
                     console.log('111');
                     var chatMessage = {
                         sender: username,
-                        opName: A_op,
-                        index: A_index,
-                        content: A_content,
+                        opName: xFormedOpA.opName,
+                        index: xFormedOpA.index,
+                        content: xFormedOpA.content,
                         remoteTS: localTS,
-                        parentId: A_parent,
+                        parentId: xFormedOpA.parentId,
                         type: 'CHAT'
                     };
 
