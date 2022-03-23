@@ -295,22 +295,22 @@ function onMessageReceived(payload) {
                 if(xFormedOpB.opName === 'INSERT'){
                     //create new node
                     newNodeB = document.createElement('div');
-                    newTextNodeB = document.createTextNode(B_content);
+                    newTextNodeB = document.createTextNode(xFormedOpB.content);
                     newNodeB.appendChild(newTextNodeB);
                     //apply locally
-                    nodeOfClientB = document.getElementById('A_' + B_parent);
+                    nodeOfClientB = document.getElementById('A_' + xFormedOpB.parentId);
                     children = nodeOfClientB.children;
-                    nodeOfClientB.insertBefore(newNodeB, children[B_index]);
+                    nodeOfClientB.insertBefore(newNodeB, children[xFormedOpB.index]);
                 }
                 else if(xFormedOpB.opName === 'DELETE'){
-                    nodeOfClientB = document.getElementById('A_' + B_parent);
+                    nodeOfClientB = document.getElementById('A_' + xFormedOpB.parentId);
                     children = nodeOfClientB.children;
-                    nodeOfClientB.removeChild(children[B_index]);
+                    nodeOfClientB.removeChild(children[xFormedOpB.index]);
                 }
                 else if(xFormedOpB.opName === 'EDIT'){
-                    nodeOfClientB = document.getElementById('A_' + B_parent);
+                    nodeOfClientB = document.getElementById('A_' + xFormedOpB.parentId);
                     children = nodeOfClientB.children;
-                    children[B_index].innerHTML = B_content;
+                    children[xFormedOpB.index].innerHTML = xFormedOpB.content;
                 }
                 //set new localTS after accept other operations
                 localTS=message.remoteTS;
