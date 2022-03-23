@@ -265,7 +265,7 @@ function onMessageReceived(payload) {
                     //apply locally
                     nodeOfClientB = document.getElementById('A_' + B_parent);
                     children = nodeOfClientB.children;
-                    nodeOfClientB.insertBefore(newNodeA, children[B_index]);
+                    nodeOfClientB.insertBefore(newNodeB, children[B_index]);
                 }
                 else if(blockOpB.opName === 'DELETE'){
                     nodeOfClientB = document.getElementById('A_' + B_parent);

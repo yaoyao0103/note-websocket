@@ -37,11 +37,12 @@ public class ChatController {
 
 
     @MessageMapping("/chat.send")
-    public void sendMessage(@Header("simpSessionId") String sessionId, @Payload ChatMessage chatMessage) {
+    public void sendMessage(@Header("simpSessionId") String sessionId, @Payload ChatMessage chatMessage) throws InterruptedException {
         String sender = chatMessage.getSender();
         System.out.println(chatMessage.getContent());
         int remoteTs=chatMessage.getRemoteTS();
         // skip the OP
+        Thread.sleep(3000);
         if(remoteTs < localTs) return;
         // handle this OP
         else{
@@ -50,6 +51,7 @@ public class ChatController {
                 controllerState = ControllerState.PROCESSING;
                 // save this OP
                 localTs+=1;
+                System.out.println(localTs);
                 chatMessage.setRemoteTS(localTs);
                 for (Map.Entry<String, String> entry : dict.entrySet()) {
                     if( !sender.equals(entry.getKey()) ){
@@ -57,6 +59,7 @@ public class ChatController {
                     }
                 }
                 chatMessage.setContent("Ack");
+                chatMessage.setSender("Controller");
                 simpMessagingTemplate.convertAndSendToUser(sessionId, "/msg", chatMessage);
                 //finish
                 controllerState = ControllerState.LISTENING;
