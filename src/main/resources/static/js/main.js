@@ -18,6 +18,8 @@ var localOp = null;
 var remoteOp = null;
 var localOpPrime = null;
 var remoteOpPrime = null;
+var localOpPrimeArray = new Array;
+var remoteOpPrimeArray = new Array;
 var opBuffer = new Array();
 var CtoS_Msg = null;
 var StoC_Msg = null;
@@ -85,15 +87,16 @@ function applyOp(op){
     let newTextNode;
     let nodeOfClient;
     let children;
+
     if (op.type === 'INSERT') {
-            //create new node
-            newNode = document.createElement('div');
-            newTextNode = document.createTextNode(op.content);
-            newNode.appendChild(newTextNodeA);
-            //apply locally
-            nodeOfClient = document.getElementById('A_' + op.parentId);
-            children = nodeOfClient.children;
-            nodeOfClient.insertBefore(newNode, children[op.index]);
+        //create new node
+        newNode = document.createElement('div');
+        newTextNode = document.createTextNode(op.content);
+        newNode.appendChild(newTextNode);
+        //apply locally
+        nodeOfClient = document.getElementById('A_' + op.parentId);
+        children = nodeOfClient.children;
+        nodeOfClient.insertBefore(newNode, children[op.index]);
     }
     else if (op.type === 'DELETE') {
         //save origin content
@@ -110,82 +113,67 @@ function applyOp(op){
     }
 }
 
-function OT(localOp, remoteOp){
-    let localType = localOp.type;
-    let remoteType = remoteOp.type;
-    if(localType === 'INSERT'){
-        if(remoteType === 'INSERT'){
-            localOpPrime = TII(localOp, remoteOp); // get A'
-            remoteOpPrime = TII(remoteOp, localOp); // get B'
+function OT(tarOp, refOp){
+    let tarType = tarOp.type;
+    let refType = refOp.type;
+    let tarOpPrime;
+    if(tarType === 'INSERT'){
+        if(refType === 'INSERT'){
+            tarOpPrime = TII(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'DELETE'){
-            localOpPrime = TID(localOp, remoteOp); // get A'
-            remoteOpPrime = TDI(remoteOp, localOp); // get B'
+        else if(refType === 'DELETE'){
+            tarOpPrime = TID(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'EDIT'){
-            localOpPrime = TIE(localOp, remoteOp); // get A'
-            remoteOpPrime = TEI(remoteOp, localOp); // get B'
+        else if(refType === 'EDIT'){
+            tarOpPrime = TIE(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'FOCUS'){
-            localOpPrime = TIF(localOp, remoteOp); // get A'
-            remoteOpPrime = TFI(remoteOp, localOp); // get B'
+        else if(refType === 'FOCUS'){
+            tarOpPrime = TIF(tarOp, refOp); // get A'
         }
     }
-    else if(localType === 'DELETE'){
-        if(remoteType === 'INSERT'){
-            localOpPrime = TDI(localOp, remoteOp); // get A'
-            remoteOpPrime = TID(remoteOp, localOp); // get B'
+    else if(tarType === 'DELETE'){
+        if(refType === 'INSERT'){
+            tarOpPrime = TDI(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'DELETE'){
-            localOpPrime = TDD(localOp, remoteOp); // get A'
-            remoteOpPrime = TDD(remoteOp, localOp); // get B'
+        else if(refType === 'DELETE'){
+            tarOpPrime = TDD(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'EDIT'){
-            localOpPrime = TDE(localOp, remoteOp); // get A'
-            remoteOpPrime = TED(remoteOp, localOp); // get B'
+        else if(refType === 'EDIT'){
+            tarOpPrime = TDE(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'FOCUS'){
-            localOpPrime = TDF(localOp, remoteOp); // get A'
-            remoteOpPrime = TFD(remoteOp, localOp); // get B'
+        else if(refType === 'FOCUS'){
+            tarOpPrime = TDF(tarOp, refOp); // get A'
         }
     }
-    else if(localType === 'EDIT'){
-        if(remoteType === 'INSERT'){
-            localOpPrime = TEI(localOp, remoteOp); // get A'
-            remoteOpPrime = TIE(remoteOp, localOp); // get B'
+    else if(tarType === 'EDIT'){
+        if(refType === 'INSERT'){
+            tarOpPrime = TEI(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'DELETE'){
-            localOpPrime = TED(localOp, remoteOp); // get A'
-            remoteOpPrime = TDE(remoteOp, localOp); // get B'
+        else if(refType === 'DELETE'){
+            tarOpPrime = TED(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'EDIT'){
-            localOpPrime = TEE(localOp, remoteOp); // get A'
-            remoteOpPrime = TEE(remoteOp, localOp); // get B'
+        else if(refType === 'EDIT'){
+            tarOpPrime = TEE(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'FOCUS'){
-            localOpPrime = TEF(localOp, remoteOp); // get A'
-            remoteOpPrime = TFE(remoteOp, localOp); // get B'
+        else if(refType === 'FOCUS'){
+            tarOpPrime = TEF(tarOp, refOp); // get A'
         }
     }
-    else if(localType === 'FOCUS'){
-        if(remoteType === 'INSERT'){
-            localOpPrime = TFI(localOp, remoteOp); // get A'
-            remoteOpPrime = TIF(remoteOp, localOp); // get B'
+    else if(tarType === 'FOCUS'){
+        if(refType === 'INSERT'){
+            tarOpPrime = TFI(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'DELETE'){
-            localOpPrime = TFD(localOp, remoteOp); // get A'
-            remoteOpPrime = TDF(remoteOp, localOp); // get B'
+        else if(refType === 'DELETE'){
+            tarOpPrime = TFD(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'EDIT'){
-            localOpPrime = TFE(localOp, remoteOp); // get A'
-            remoteOpPrime = TEF(remoteOp, localOp); // get B'
+        else if(refType === 'EDIT'){
+            tarOpPrime = TFE(tarOp, refOp); // get A'
         }
-        else if(remoteType === 'FOCUS'){
-            localOpPrime = TFF(localOp, remoteOp); // get A'
-            remoteOpPrime = TFF(remoteOp, localOp); // get B'
+        else if(refType === 'FOCUS'){
+            tarOpPrime = TFF(tarOp, refOp); // get A'
         }
     }
-    return [localOpPrime, remoteOpPrime];
+    return tarOpPrime
 }
 
 function send(event) {
@@ -195,7 +183,6 @@ function send(event) {
     let index = parseInt(document.getElementById("A_index").value);
     let content = document.getElementById("A_content").value;
 
-
     // ---------------------- state: Synced --------------------
     if(ClientState == ClientStateEnum.Synced) {
         /***** ApplyRemoteOp *****/
@@ -204,7 +191,6 @@ function send(event) {
 
         // step 2: increment localTS
         localTS += 1;
-
         // step 3: call applyOp(localOp)
         applyOp(localOp);
 
@@ -213,37 +199,38 @@ function send(event) {
             CtoS_Msg = {
                 sender: username,
                 TS: localTS,
-                Op: localOp,
-                type: 'CHAT'
+                op: localOp,
+                type: 'OP'
             };
             stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
         }
+
         // buffer is empty => AwaitingACK state
-        if(localOpBuffer.length <= 0){
+        if(opBuffer.length <= 0){
             ClientState = ClientStateEnum.AwaitingACK;
         }
         // buffer is not empty => AwaitingWithBuffer state
         else{
             ClientState = ClientStateEnum.AwaitingWithBuffer;
         }
-        event.preventDefault();
     }
     // ---------------------- state: AwaitingACK or AwaitingWithBuffer --------------------
     else {
         /***** ApplyBufferLocalOp *****/
         // step 1: add Op from the received LocalChange event to opBuffer
+        localOp = new Op(sessionId, type, parentId, index, content);
         opBuffer.unshift(localOp);
 
         // step 2: call applyOp(opBuffer.last)
-        let lastOp = onBuffer.pop();
-        applyOp(lastOp);
+        // let lastOp = opBuffer.pop();
+        applyOp(localOp);
+        ClientState = ClientStateEnum.AwaitingWithBuffer;
     }
+    event.preventDefault();
 }
 
-
 function onMessageReceived(payload) {
-
-    StoC_msg = JSON.parse(payload.body);
+    let StoC_msg = JSON.parse(payload.body);
     var messageElement = document.createElement('li');
 
     // join msg
@@ -253,7 +240,7 @@ function onMessageReceived(payload) {
             stompClient.subscribe('/user/' + sessionId + '/msg', onMessageReceived);
         }
         messageElement.classList.add('event-message');
-        StoC_msg.content = message.sender + ' joined!';
+        StoC_msg.content = StoC_msg.sender + ' joined!';
     }
 
     // leave msg
@@ -262,14 +249,42 @@ function onMessageReceived(payload) {
         StoC_msg.content = StoC_msg.sender + ' left!';
     }
 
-    // StoC_msg
+    // ACK
+    else if (StoC_msg.type === 'ACK') {
+        //-------------------------- State: AwaitingACK ------------------------------
+        if(ClientState == ClientStateEnum.AwaitingACK){
+            ClientState = ClientStateEnum.Synced;
+        }
+        //-------------------------- State: AwaitingWithBuffer ------------------------------
+        /***** CreatingLocalOpFromBuffer *****/
+        else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
+            // step 1: increment localTS
+            localTS += 1;
+
+            // step 2: set localOp to opBuffer.first
+            opBuffer.unshift(localOp);
+
+            // step 3: remove opBuffer.first from opBuffer
+            opBuffer.pop();
+
+            if(opBuffer.length <= 0){
+                ClientState = ClientStateEnum.AwaitingACK;
+            }
+            // buffer is not empty => AwaitingWithBuffer state
+            else{
+                ClientState = ClientStateEnum.AwaitingWithBuffer;
+            }
+        }
+    }
+
+    // Op msg
     else {
         //--------------------------- State: Synced -----------------------------
         if (ClientState==ClientStateEnum.Synced){
             /***** ApplyRemoteOp *****/
             // step 1: set remoteTS and remoteOp to the values within the received StoC Msg event
-            remoteOp = message.Op;
-            remoteTS = message.TS;
+            remoteOp = StoC_msg.op;
+            remoteTS = StoC_msg.TS;
 
             // step 2: set localTS to the value of remoteTS
             localTS = remoteTS;
@@ -281,147 +296,119 @@ function onMessageReceived(payload) {
         }
         //-------------------------- State: AwaitingACK ------------------------------
         else if(ClientState == ClientStateEnum.AwaitingACK){
-            // receive ACK
-            if(StoC_msg.type === 'ACK') {
-                ClientState = ClientStateEnum.Synced;
-            }
-            // receive remote Op
             /***** ApplyRemoteOpWithoutACK *****/
-            else {
-                // step 1: set localTS to remoteTS
-                remoteTS = localTS;
+            // step 1: set localTS to remoteTS
+            remoteTS = localTS;
 
-                // step 2: increment localTS
-                localTS += 1;
+            // step 2: increment localTS
+            localTS += 1;
 
-                // step 3: set remoteTS and remoteOp to the values within the received StoC Msg event
-                remoteTS = StoC_msg.TS
-                remoteOp = StoC_msg.Op;
+            // step 3: set remoteTS and remoteOp to the values within the received StoC Msg event
+            remoteTS = StoC_msg.TS
+            remoteOp = StoC_msg.op;
 
-                // step 4: obtain remoteOpPrime and localOpPrime by evaluating xform(remoteOp, localOp)
-                let type = document.getElementById("A_op").value;
-                let parentId = document.getElementById("A_parent").value;
-                let index = parseInt(document.getElementById("A_index").value);
-                let content = document.getElementById("A_content").value;
-                localOp = new Op(sessionId, type, parentId, index, content);
-                //Operation Transformation
-                [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
+            // step 4: obtain remoteOpPrime and localOpPrime by evaluating xform(remoteOp, localOp)
+            localOpPrime = OT(localOp, remoteOp);
+            remoteOpPrime = OT(remoteOp, localOp);
 
-                // step 5: call applyOp(remoteOpPrime)
-                applyOp(remoteOpPrime);
+            // step 5: call applyOp(remoteOpPrime)
+            applyOp(remoteOpPrime);
 
-                // step 6: set localOp to the value of localOpPrime
-                localOp = localOpPrime;
+            // step 6: set localOp to the value of localOpPrime
+            localOp = localOpPrime;
 
-                // step 7: send localOp to Controller
-                if (stompClient) {
-                    CtoS_Msg = {
-                        sender: username,
-                        Op: localOp,
-                        TS: localTS,
-                        type: 'CHAT'
-                    };
-
-                    stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
-                }
-                if(localOpBuffer.length <= 0){
-                    ClientState = ClientStateEnum.AwaitingACK;
-                }
-                // buffer is not empty => AwaitingWithBuffer state
-                else{
-                    ClientState = ClientStateEnum.AwaitingWithBuffer;
-                }
+            // step 7: send localOp to Controller
+            if (stompClient) {
+                CtoS_Msg = {
+                    sender: username,
+                    op: localOp,
+                    TS: localTS,
+                    type: 'OP'
+                };
+                stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
+            }
+            if(opBuffer.length <= 0){
+                ClientState = ClientStateEnum.AwaitingACK;
+            }
+            // buffer is not empty => AwaitingWithBuffer state
+            else{
+                ClientState = ClientStateEnum.AwaitingWithBuffer;
             }
         }
         //-------------------------- State: AwaitingWithBuffer ------------------------------
         else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
-            // receive ACK
-            /***** CreatingLocalOpFromBuffer *****/
-            if(StoC_msg.type === 'ACK') {
-                // step 1: increment localTS
-                localTS += 1;
 
-                // step 2: set localOp to opBuffer.first
-                opBuffer.unshift(localOp);
+            remoteOp = StoC_msg.op;
+            /***** ApplyRemoteOpWithBuffer *****/
+            // step 1: set localTS to remoteTS
+            remoteTS = localTS;
 
-                // step 3: remove opBuffer.first from opBuffer
-                opBuffer.pop();
+            // step 2: increment localTS
+            localTS += 1;
 
-                if(localOpBuffer.length <= 0){
-                    ClientState = ClientStateEnum.AwaitingACK;
-                }
-                // buffer is not empty => AwaitingWithBuffer state
-                else{
-                    ClientState = ClientStateEnum.AwaitingWithBuffer;
+            // step 3: obtain remoteOpPrime[0] by evaluating xform(remoteOp, localOp)
+            remoteOpPrimeArray[0] = OT(remoteOp, localOp);
+
+            // step 4: obtain remoteOpPrime[i+1] by evaluating xform(remoteOpPrime[i], opBuffer[i])
+            for(let i = 0; i < opBuffer.length; i++){
+                remoteOpPrimeArray[i+1] = OT(remoteOpPrimeArray[i], opBuffer[i]);
+            }
+
+            // step 5: call applyOp(remoteOpPrime.last)
+            applyOp(remoteOpPrimeArray[remoteOpPrimeArray.length-1]);
+
+            // step 6: obtain localOpPrime by evaluating xform(localOp, remoteOp)
+            localOpPrime = OT(localOp, remoteOp);
+
+            // step 7: set localOp to the value of localOpPrime
+            localOp = localOpPrime;
+
+            // step 8: obtain opBuffer[i] by evaluating xform(opBuffer[i], remoteOpPrime[i]) & send xformed Op in buffer
+            console.log("opBuffer.length--" + opBuffer.length);
+            for(let j = 0; j < opBuffer.length; j++){
+                console.log("in--" + j);
+                opBuffer[j] = OT( opBuffer[j], remoteOpPrimeArray[j]);
+                if (stompClient) {
+                    CtoS_Msg = {
+                        sender: username,
+                        op: opBuffer[j],
+                        TS: localTS,
+                        type: 'OP'
+                    };
+                    stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
                 }
             }
-            /***** ApplyRemoteOpWithBuffer *****/
-            else if(StoC_msg.type === 'ACK') {
-                // step 1: set localTS to remoteTS
-                remoteTS = localTS;
 
-                // step 2: increment localTS
-                localTS += 1;
-
-                // step 3: obtain remoteOpPrime[0] by evaluating xform(remoteOp, localOp)
-                let type = document.getElementById("A_op").value;
-                let parentId = document.getElementById("A_parent").value;
-                let index = parseInt(document.getElementById("A_index").value);
-                let content = document.getElementById("A_content").value;
-                localOp = new Op(sessionId, type, parentId, index, content);
-                //Operation Transformation
-                [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
-
-                 //***************** doto
-                // step 4: obtain remoteOpPrime[i+1] by evaluating xform(remoteOpPrime[i], opBuffer[i])
-                for(let op of opBuffer){
-                    [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
-                }
-
-                // step 5: call applyOp(remoteOpPrime.last)
-                let lastOp = opBuffer.pop();
-                applyOp(lastOp);
-
-                // step 6: obtain localOpPrime by evaluating xform(localOp, remoteOp)
-                [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
-
-                // step 7: set localOp to the value of localOpPrime
-                localOp = localOpPrime;
-
-                // step 8: obtain opBuffer[i] by evaluating xform(opBuffer[i], remoteOpPrime[i])
-                for(let op of opBuffer){
-                    [localOpPrime, remoteOpPrime] = OT(localOp, remoteOp);
-                }
-
-                if(localOpBuffer.length <= 0){
-                    ClientState = ClientStateEnum.AwaitingACK;
-                }
-                // buffer is not empty => AwaitingWithBuffer state
-                else{
-                    ClientState = ClientStateEnum.AwaitingWithBuffer;
-                }
+            if(opBuffer.length <= 0){
+                ClientState = ClientStateEnum.AwaitingACK;
+            }
+            // buffer is not empty => AwaitingWithBuffer state
+            else{
+                ClientState = ClientStateEnum.AwaitingWithBuffer;
             }
         }
 
-        // show message on website
-        messageElement.classList.add('chat-message');
 
-        var avatarElement = document.createElement('i');
-        var avatarText = document.createTextNode(message.sender[0]);
-        avatarElement.appendChild(avatarText);
-        avatarElement.style['background-color'] = getAvatarColor(message.sender);
-
-        messageElement.appendChild(avatarElement);
-
-        var usernameElement = document.createElement('span');
-        var usernameText = document.createTextNode(message.sender);
-        usernameElement.appendChild(usernameText);
-        messageElement.appendChild(usernameElement);
 
     }
 
+    // show message on website
+    messageElement.classList.add('chat-message');
+
+    var avatarElement = document.createElement('i');
+    var avatarText = document.createTextNode(StoC_msg.sender[0]);
+    avatarElement.appendChild(avatarText);
+    avatarElement.style['background-color'] = getAvatarColor(StoC_msg.sender);
+
+    messageElement.appendChild(avatarElement);
+
+    var usernameElement = document.createElement('span');
+    var usernameText = document.createTextNode(StoC_msg.sender);
+    usernameElement.appendChild(usernameText);
+    messageElement.appendChild(usernameElement);
+
     var textElement = document.createElement('p');
-    var messageText = document.createTextNode(message.content);
+    var messageText = document.createTextNode(StoC_msg.op.content);
     textElement.appendChild(messageText);
 
     messageElement.appendChild(textElement);

@@ -1,0 +1,49 @@
+package com.tupinamba.springbootwebsocket.model;
+
+public class Op {
+    private String UId;
+    private String type;
+    private String parentId;
+    private int index;
+    private String content;
+
+    public String getUId() {
+        return UId;
+    }
+
+    public void setUId(String sender) {
+        this.UId = UId;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(String parentId) {
+        this.parentId = parentId;
+    }
+
+    public int getIndex() {
+        return index;
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+}
