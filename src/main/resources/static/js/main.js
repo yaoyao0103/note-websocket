@@ -327,14 +327,14 @@ function onMessageReceived(payload) {
             remoteTS = StoC_msg.ts;
             remoteOp = StoC_msg.op;
 
-            console.log("localOp: " + JSON.stringify(localOp));
-            console.log("remoteOp: " + JSON.stringify(remoteOp));
             // step 4: obtain remoteOpPrime and localOpPrime by evaluating xform(remoteOp, localOp)
+            console.log("local: " + JSON.stringify(localOp));
+            console.log("remote: " + JSON.stringify(remoteOp));
             remoteOpPrime = OT(remoteOp, localOp);
             localOpPrime = OT(localOp, remoteOp);
 
-            console.log(remoteOpPrime);
             // step 5: call applyOp(remoteOpPrime)
+            console.log(JSON.stringify(remoteOpPrime));
             applyOp(remoteOpPrime);
 
             // step 6: set localOp to the value of localOpPrime
@@ -463,8 +463,6 @@ function contain(tarParentId, tarIndex, refParentId, refIndex){
 
     let refNode = document.getElementById(refParentId).childNodes[refIndex];
     let tarNode = document.getElementById(tarParentId).childNodes[tarIndex];
-    console.log("tarNode: " + tarNode);
-    console.log("refNode: " + refNode);
     return elementContains(tarNode, refNode);
     //return false;
 }
@@ -629,6 +627,7 @@ function TDD(tarBlockOp, refBlockOp){
     let refIndex = refBlockOp.index;
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
+    let refOpIsValid = refBlockOp.isValid;
     // 目標包住參考 目標操作則不改變
     if(contain(tarParentId,tarIndex,refParentId,refIndex)){
         console.log("1!!");
@@ -639,6 +638,23 @@ function TDD(tarBlockOp, refBlockOp){
         console.log("2!!");
         let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex, tarContent, 0);
         return xFormedOp;
+    }
+
+    /*
+        如果tarOp是無效的 則不改變操作
+        例子:
+        A刪第一個 B再刪第一個 A再刪第一個
+        原本有問題的會是B方
+        在收到A的第一個操作時 A'會是有效操作，B'則為無效操作寄出
+        *重點: 在ApplingRemoteOpWithoutACK state中，會把localOp設為localOpPrime 即現在的localOp是無效操作
+        在原本的還沒改TDD時，A的第二個操作進來，執行TDD(remoteOp, localOp)會到最下面那個我打console.log("5!!")那個地方，會回傳無效Op，所以remoteOpPrime就會試無效的 不會被A套用
+        改了TDD後，我加了一個判斷refOp是否isValid，如果是無效Op則回傳有效不改變操作，意思即是說 如果本地操作是無效的話，代表那個本地操作可能是之前的操作，衝突已經化解過了，這次不會再衝突的概念，直接回傳有效不改變操作
+        回傳有效不改變操作，即remoteOpPrime是有效的，才會被A套用到
+        *備註: 我目前想法是這樣，但我不知道這是不是這正確的方法，可能要再多測試一些案例看看會不會出錯
+    */
+    if(refOpIsValid == 0){
+        console.log("is not valid!!");
+        return tarBlockOp;
     }
     // 若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作 (因為目標包含參考不需要改變，所以不多寫出來)
     if(tarParentId != refParentId || tarIndex < refIndex){
