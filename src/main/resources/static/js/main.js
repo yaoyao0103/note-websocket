@@ -628,6 +628,7 @@ function TDD(tarBlockOp, refBlockOp){
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     let refOpIsValid = refBlockOp.isValid;
+    let tarOpIsValid = tarBlockOp.isValid;
     // 目標包住參考 目標操作則不改變
     if(contain(tarParentId,tarIndex,refParentId,refIndex)){
         console.log("1!!");
@@ -650,9 +651,8 @@ function TDD(tarBlockOp, refBlockOp){
         在原本的還沒改TDD時，A的第二個操作進來，執行TDD(remoteOp, localOp)會到最下面那個我打console.log("5!!")那個地方，會回傳無效Op，所以remoteOpPrime就會試無效的 不會被A套用
         改了TDD後，我加了一個判斷refOp是否isValid，如果是無效Op則回傳有效不改變操作，意思即是說 如果本地操作是無效的話，代表那個本地操作可能是之前的操作，衝突已經化解過了，這次不會再衝突的概念，直接回傳有效不改變操作
         回傳有效不改變操作，即remoteOpPrime是有效的，才會被A套用到
-        *備註: 我目前想法是這樣，但我不知道這是不是這正確的方法，可能要再多測試一些案例看看會不會出錯
     */
-    if(refOpIsValid == 0){
+    if(refOpIsValid == 0 || tarOpIsValid == 0){
         console.log("is not valid!!");
         return tarBlockOp;
     }
