@@ -45,11 +45,13 @@ public class ChatController {
         System.out.println(controllerState);
         String sender = CtoS_msg.getSender();
         int remoteTS = CtoS_msg.getTS();
-        //System.out.println(remoteTS);
         Op remoteOp = CtoS_msg.getOp();
         // skip the OP
-        //System.out.println(remoteTS + " " + localTS);
-        if(remoteTS <= localTS) return;
+        System.out.println("remoteTS: " + remoteTS + ",  localTS: " + localTS);
+        if(remoteTS <= localTS){
+            System.out.println("keep listening!!");
+            return;
+        }
         // handle this OP
         else{
             if(controllerState == ControllerState.LISTENING){

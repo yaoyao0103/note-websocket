@@ -185,7 +185,8 @@ function send(event) {
 
     // ---------------------- state: Synced --------------------
     if(ClientState == ClientStateEnum.Synced) {
-        /***** ApplyRemoteOp *****/
+        /***** ApplyingLocalOp *****/
+        console.log("stata: ApplyingLocalOp");
         // step 1: set localOp to the Op in the received LocalChange event
         localOp = new Op(sessionId, type, parentId, index, content);
 
@@ -198,9 +199,10 @@ function send(event) {
         if (stompClient) {
             CtoS_Msg = {
                 sender: username,
-                TS: localTS,
-                op: localOp,
-                type: 'OP'
+                sessionId: sessionId,
+                type: 'OP',
+                ts: localTS,
+                op: localOp
             };
             stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
         }
@@ -216,14 +218,14 @@ function send(event) {
     }
     // ---------------------- state: AwaitingACK or AwaitingWithBuffer --------------------
     else {
-        /***** ApplyBufferLocalOp *****/
+        /***** ApplyingBufferedLocalOp *****/
+        console.log("stata: ApplyingBufferedLocalOp");
         // step 1: add Op from the received LocalChange event to opBuffer
-        localOp = new Op(sessionId, type, parentId, index, content);
-        opBuffer.unshift(localOp);
+        let tempOp = new Op(sessionId, type, parentId, index, content);
+        opBuffer.push(tempOp);
 
         // step 2: call applyOp(opBuffer.last)
-        // let lastOp = opBuffer.pop();
-        applyOp(localOp);
+        applyOp(opBuffer[opBuffer.length-1]);
         ClientState = ClientStateEnum.AwaitingWithBuffer;
     }
     event.preventDefault();
@@ -258,15 +260,26 @@ function onMessageReceived(payload) {
         //-------------------------- State: AwaitingWithBuffer ------------------------------
         /***** CreatingLocalOpFromBuffer *****/
         else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
+            console.log("stata: CreatingLocalOpFromBuffer");
             // step 1: increment localTS
             localTS += 1;
 
             // step 2: set localOp to opBuffer.first
-            opBuffer.unshift(localOp);
+            localOp = opBuffer[0];
 
             // step 3: remove opBuffer.first from opBuffer
-            opBuffer.pop();
+            opBuffer.shift();
 
+            if (stompClient) {
+                CtoS_Msg = {
+                    sender: username,
+                    sessionId: sessionId,
+                    type: 'OP',
+                    ts: localTS,
+                    op: localOp
+                };
+                stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
+            }
             if(opBuffer.length <= 0){
                 ClientState = ClientStateEnum.AwaitingACK;
             }
@@ -282,9 +295,10 @@ function onMessageReceived(payload) {
         //--------------------------- State: Synced -----------------------------
         if (ClientState==ClientStateEnum.Synced){
             /***** ApplyRemoteOp *****/
+            console.log("stata: ApplyRemoteOp");
             // step 1: set remoteTS and remoteOp to the values within the received StoC Msg event
             remoteOp = StoC_msg.op;
-            remoteTS = StoC_msg.TS;
+            remoteTS = StoC_msg.ts;
 
             // step 2: set localTS to the value of remoteTS
             localTS = remoteTS;
@@ -296,15 +310,16 @@ function onMessageReceived(payload) {
         }
         //-------------------------- State: AwaitingACK ------------------------------
         else if(ClientState == ClientStateEnum.AwaitingACK){
-            /***** ApplyRemoteOpWithoutACK *****/
+            /***** ApplyingRemoteOpWithoutACK *****/
+            console.log("stata: ApplyingRemoteOpWithoutACK");
             // step 1: set localTS to remoteTS
-            remoteTS = localTS;
+            localTS = StoC_msg.ts;
 
             // step 2: increment localTS
             localTS += 1;
 
             // step 3: set remoteTS and remoteOp to the values within the received StoC Msg event
-            remoteTS = StoC_msg.TS
+            remoteTS = StoC_msg.ts;
             remoteOp = StoC_msg.op;
 
             // step 4: obtain remoteOpPrime and localOpPrime by evaluating xform(remoteOp, localOp)
@@ -321,9 +336,10 @@ function onMessageReceived(payload) {
             if (stompClient) {
                 CtoS_Msg = {
                     sender: username,
-                    op: localOp,
-                    TS: localTS,
-                    type: 'OP'
+                    sessionId: sessionId,
+                    type: 'OP',
+                    ts: localTS,
+                    op: localOp
                 };
                 stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
             }
@@ -338,10 +354,11 @@ function onMessageReceived(payload) {
         //-------------------------- State: AwaitingWithBuffer ------------------------------
         else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
 
+            /***** ApplyingRemoteOpWithBuffer *****/
             remoteOp = StoC_msg.op;
-            /***** ApplyRemoteOpWithBuffer *****/
+            remoteTS = StoC_msg.ts;
             // step 1: set localTS to remoteTS
-            remoteTS = localTS;
+            localTS = remoteTS;
 
             // step 2: increment localTS
             localTS += 1;
@@ -363,22 +380,21 @@ function onMessageReceived(payload) {
             // step 7: set localOp to the value of localOpPrime
             localOp = localOpPrime;
 
-            // step 8: obtain opBuffer[i] by evaluating xform(opBuffer[i], remoteOpPrime[i]) & send xformed Op in buffer
-            console.log("opBuffer.length--" + opBuffer.length);
+            // step 8: obtain opBuffer[i] by evaluating xform(opBuffer[i], remoteOpPrime[i]) & send
             for(let j = 0; j < opBuffer.length; j++){
-                console.log("in--" + j);
                 opBuffer[j] = OT( opBuffer[j], remoteOpPrimeArray[j]);
-                if (stompClient) {
-                    CtoS_Msg = {
-                        sender: username,
-                        op: opBuffer[j],
-                        TS: localTS,
-                        type: 'OP'
-                    };
-                    stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
-                }
             }
 
+            if (stompClient) {
+                CtoS_Msg = {
+                    sender: username,
+                    sessionId: sessionId,
+                    type: 'OP',
+                    ts: localTS,
+                    op: localOp
+                };
+                stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
+            }
             if(opBuffer.length <= 0){
                 ClientState = ClientStateEnum.AwaitingACK;
             }
@@ -434,8 +450,11 @@ function getAvatarColor(messageSender) {
 function sleep(time) {
     return new Promise((resolve) => setTimeout(resolve, time));
 }
-function contain(refParentId, refIndex, tarParentId, tarIndex){
-    return false;
+function contain(tarParentId, tarIndex, refParentId, refIndex){
+    const elementContains = (parent, child) => parent !== child && parent.contains(child);
+    let refNode = document.getElementById(refParentId).childNodes.item(refIndex);
+    let tarNode = document.getElementById(tarParentId).childNodes.item(tarIndex);
+    return elementContains(tarNode, refNode);
 }
 function TII(tarBlockOp, refBlockOp){
     let tarUId = tarBlockOp.UId;
@@ -531,9 +550,7 @@ function TFI(tarBlockOp, refBlockOp){
     let refIndex = refBlockOp.index;
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
-    //目標parent包住參考parent，目標操作直接執行
-    if(contain(tarParentId,refParentId))
-        return tarBlockOp;
+    //目標parent包住參考parent，不會發生
     //參考parent包住目標parent，不會發生
     //若在以下條件: 1. 不在同個parent下  2. 目標index小於或參考index => 則不改變操作
     if(tarParentId != refParentId || tarIndex < refIndex)

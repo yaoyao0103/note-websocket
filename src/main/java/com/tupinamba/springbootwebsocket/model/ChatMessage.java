@@ -6,7 +6,7 @@ public class ChatMessage {
     private String sender;
     private String sessionId;
     private MessageType type;
-    private int TS;
+    private int ts;
     private Op op;
 
     public enum MessageType {
@@ -46,10 +46,15 @@ public class ChatMessage {
     }
 
     public int getTS() {
-        return TS;
+        return ts;
     }
 
-    public void setTS(int TS) {
-        this.TS = TS;
+    public void setTS(int ts) {
+        this.ts = ts;
+    }
+
+    @Override
+    public String toString(){
+        return String.format("sender: %s,  TS: %d", sender, ts);
     }
 }
