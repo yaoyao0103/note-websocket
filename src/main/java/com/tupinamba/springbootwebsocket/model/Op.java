@@ -1,18 +1,19 @@
 package com.tupinamba.springbootwebsocket.model;
 
 public class Op {
-    private String UId;
+    private String uid;
     private String type;
     private String parentId;
     private int index;
     private String content;
+    private int isValid;
 
-    public String getUId() {
-        return UId;
+    public String getUid() {
+        return uid;
     }
 
-    public void setUId(String sender) {
-        this.UId = UId;
+    public void setUid(String uid) {
+        this.uid = uid;
     }
 
     public String getType() {
@@ -47,5 +48,11 @@ public class Op {
         this.content = content;
     }
 
+    public int getIsValid() {
+        return isValid;
+    }
 
+    public void setIsValid(int isValid) {
+        this.isValid = isValid;
+    }
 }

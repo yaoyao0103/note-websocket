@@ -30,12 +30,13 @@ var colors = [
 ];
 
 class Op {
-    constructor(sessionId, type, parentId, index, content){
-        this.UId = sessionId;
+    constructor(sessionId, type, parentId, index, content, isValid){
+        this.uid = sessionId;
         this.type = type;
         this.parentId = parentId;
         this.index = index;
         this.content = content;
+        this.isValid = isValid;
     }
 }
 const ClientStateEnum = {"Synced":1, "AwaitingACK":2, "AwaitingWithBuffer":3}
@@ -88,28 +89,33 @@ function applyOp(op){
     let nodeOfClient;
     let children;
 
-    if (op.type === 'INSERT') {
-        //create new node
-        newNode = document.createElement('div');
-        newTextNode = document.createTextNode(op.content);
-        newNode.appendChild(newTextNode);
-        //apply locally
-        nodeOfClient = document.getElementById('A_' + op.parentId);
-        children = nodeOfClient.children;
-        nodeOfClient.insertBefore(newNode, children[op.index]);
-    }
-    else if (op.type === 'DELETE') {
-        //save origin content
-        nodeOfClient = document.getElementById('A_' + op.parentId);
-        children = nodeOfClient.children;
-        nodeOfClient.removeChild(children[op.index]);
+    if(op.isValid == 1){
+        if (op.type === 'INSERT') {
+            //create new node
+            newNode = document.createElement('div');
+            newTextNode = document.createTextNode(op.content);
+            newNode.appendChild(newTextNode);
+            //apply locally
+            nodeOfClient = document.getElementById(op.parentId);
+            children = nodeOfClient.children;
+            nodeOfClient.insertBefore(newNode, children[op.index]);
+        }
+        else if (op.type === 'DELETE') {
+            //save origin content
+            nodeOfClient = document.getElementById(op.parentId);
+            children = nodeOfClient.children;
+            nodeOfClient.removeChild(children[op.index]);
 
-    }
-    else if (op.type === 'EDIT'){
-        //save origin content
-        nodeOfClient = document.getElementById('A_' + op.parentId);
-        children = nodeOfClient.children;
-        children[op.index].innerHTML = op.content;
+        }
+        else if (op.type === 'EDIT'){
+            //save origin content
+            nodeOfClient = document.getElementById(op.parentId);
+            children = nodeOfClient.children;
+            children[op.index].innerHTML = op.content;
+        }
+        else{
+            return;
+        }
     }
 }
 
@@ -178,18 +184,17 @@ function OT(tarOp, refOp){
 
 function send(event) {
     // get Op info
-    let type = document.getElementById("A_op").value;
-    let parentId = document.getElementById("A_parent").value;
-    let index = parseInt(document.getElementById("A_index").value);
-    let content = document.getElementById("A_content").value;
+    let type = document.getElementById("op").value;
+    let parentId = document.getElementById("parent").value;
+    let index = parseInt(document.getElementById("index").value);
+    let content = document.getElementById("content").value;
 
     // ---------------------- state: Synced --------------------
     if(ClientState == ClientStateEnum.Synced) {
         /***** ApplyingLocalOp *****/
-        console.log("stata: ApplyingLocalOp");
+        console.log("state: ApplyingLocalOp");
         // step 1: set localOp to the Op in the received LocalChange event
-        localOp = new Op(sessionId, type, parentId, index, content);
-
+        localOp = new Op(sessionId, type, parentId, index, content, 1);
         // step 2: increment localTS
         localTS += 1;
         // step 3: call applyOp(localOp)
@@ -219,9 +224,9 @@ function send(event) {
     // ---------------------- state: AwaitingACK or AwaitingWithBuffer --------------------
     else {
         /***** ApplyingBufferedLocalOp *****/
-        console.log("stata: ApplyingBufferedLocalOp");
+        console.log("state: ApplyingBufferedLocalOp");
         // step 1: add Op from the received LocalChange event to opBuffer
-        let tempOp = new Op(sessionId, type, parentId, index, content);
+        let tempOp = new Op(sessionId, type, parentId, index, content, 1);
         opBuffer.push(tempOp);
 
         // step 2: call applyOp(opBuffer.last)
@@ -260,7 +265,7 @@ function onMessageReceived(payload) {
         //-------------------------- State: AwaitingWithBuffer ------------------------------
         /***** CreatingLocalOpFromBuffer *****/
         else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
-            console.log("stata: CreatingLocalOpFromBuffer");
+            console.log("state: CreatingLocalOpFromBuffer");
             // step 1: increment localTS
             localTS += 1;
 
@@ -295,7 +300,7 @@ function onMessageReceived(payload) {
         //--------------------------- State: Synced -----------------------------
         if (ClientState==ClientStateEnum.Synced){
             /***** ApplyRemoteOp *****/
-            console.log("stata: ApplyRemoteOp");
+            console.log("state: ApplyRemoteOp");
             // step 1: set remoteTS and remoteOp to the values within the received StoC Msg event
             remoteOp = StoC_msg.op;
             remoteTS = StoC_msg.ts;
@@ -311,7 +316,7 @@ function onMessageReceived(payload) {
         //-------------------------- State: AwaitingACK ------------------------------
         else if(ClientState == ClientStateEnum.AwaitingACK){
             /***** ApplyingRemoteOpWithoutACK *****/
-            console.log("stata: ApplyingRemoteOpWithoutACK");
+            console.log("state: ApplyingRemoteOpWithoutACK");
             // step 1: set localTS to remoteTS
             localTS = StoC_msg.ts;
 
@@ -322,10 +327,13 @@ function onMessageReceived(payload) {
             remoteTS = StoC_msg.ts;
             remoteOp = StoC_msg.op;
 
+            console.log("localOp: " + JSON.stringify(localOp));
+            console.log("remoteOp: " + JSON.stringify(remoteOp));
             // step 4: obtain remoteOpPrime and localOpPrime by evaluating xform(remoteOp, localOp)
-            localOpPrime = OT(localOp, remoteOp);
             remoteOpPrime = OT(remoteOp, localOp);
+            localOpPrime = OT(localOp, remoteOp);
 
+            console.log(remoteOpPrime);
             // step 5: call applyOp(remoteOpPrime)
             applyOp(remoteOpPrime);
 
@@ -452,31 +460,35 @@ function sleep(time) {
 }
 function contain(tarParentId, tarIndex, refParentId, refIndex){
     const elementContains = (parent, child) => parent !== child && parent.contains(child);
-    let refNode = document.getElementById(refParentId).childNodes.item(refIndex);
-    let tarNode = document.getElementById(tarParentId).childNodes.item(tarIndex);
+
+    let refNode = document.getElementById(refParentId).childNodes[refIndex];
+    let tarNode = document.getElementById(tarParentId).childNodes[tarIndex];
+    console.log("tarNode: " + tarNode);
+    console.log("refNode: " + refNode);
     return elementContains(tarNode, refNode);
+    //return false;
 }
 function TII(tarBlockOp, refBlockOp){
-    let tarUId = tarBlockOp.UId;
-    let refUId = refBlockOp.UId;
+    let taruid = tarBlockOp.uid;
+    let refuid = refBlockOp.uid;
     let tarParentId = tarBlockOp.parentId;
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
     let refIndex = refBlockOp.index;
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
-    if(tarParentId != refParentId || tarIndex < refIndex || (tarParentId == refParentId && tarIndex == refIndex && tarUId > refUId)){
+    if(tarParentId != refParentId || tarIndex < refIndex || (tarParentId == refParentId && tarIndex == refIndex && taruid > refuid)){
         return tarBlockOp;
     }
     // 其他
     else{
-        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex + 1, tarContent);
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex + 1, tarContent, 1);
         return xFormedOp;
     }
 }
 function TID(tarBlockOp, refBlockOp){
-    let tarUId = tarBlockOp.UId;
-    let refUId = refBlockOp.UId;
+    let taruid = tarBlockOp.uid;
+    let refuid = refBlockOp.uid;
     let tarParentId = tarBlockOp.parentId;
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
@@ -484,7 +496,7 @@ function TID(tarBlockOp, refBlockOp){
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     if(contain(refParentId, refIndex, tarParentId, tarIndex)){
-        let xFormedOp = new Op(tarUId, 'null', tarParentId, tarIndex, tarContent);
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex, tarContent, 0);
         return xFormedOp;
     }
     // 若在以下條件: 1. 不在同個parent下  2. 目標index小於等於參考index => 則不改變操作
@@ -492,14 +504,14 @@ function TID(tarBlockOp, refBlockOp){
         return tarBlockOp;
     // 其他
     else{
-        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex - 1, tarContent);
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex - 1, tarContent, 1);
         return xFormedOp;
     }
 }
 
 function TDI(tarBlockOp, refBlockOp){
-    let tarUId = tarBlockOp.UId;
-    let refUId = refBlockOp.UId;
+    let taruid = tarBlockOp.uid;
+    let refuid = refBlockOp.uid;
     let tarParentId = tarBlockOp.parentId;
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
@@ -511,7 +523,7 @@ function TDI(tarBlockOp, refBlockOp){
         return tarBlockOp;
     //其他
     else{
-        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex + 1, tarContent);
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex + 1, tarContent, 1);
         return xFormedOp;
     }
 }
@@ -520,8 +532,8 @@ function TIE(tarBlockOp, refBlockOp){
     return tarBlockOp;
 }
 function TEI(tarBlockOp, refBlockOp){
-    let tarUId = tarBlockOp.UId;
-    let refUId = refBlockOp.UId;
+    let taruid = tarBlockOp.uid;
+    let refuid = refBlockOp.uid;
     let tarParentId = tarBlockOp.parentId;
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
@@ -533,7 +545,7 @@ function TEI(tarBlockOp, refBlockOp){
         return tarBlockOp;
     //其他
     else{
-        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex + 1, tarContent);
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex + 1, tarContent, 1);
         return xFormedOp;
     }
 }
@@ -542,8 +554,8 @@ function TIF(tarBlockOp, refBlockOp){
     return tarBlockOp;
 }
 function TFI(tarBlockOp, refBlockOp){
-    let tarUId = tarBlockOp.UId;
-    let refUId = refBlockOp.UId;
+    let taruid = tarBlockOp.uid;
+    let refuid = refBlockOp.uid;
     let tarParentId = tarBlockOp.parentId;
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
@@ -557,7 +569,7 @@ function TFI(tarBlockOp, refBlockOp){
         return tarBlockOp;
     //若在以下條件:目標index大於等於參考index =>操作index+1
     else{
-        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex + 1, tarContent);
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex + 1, tarContent, 1);
         return xFormedOp;
     }
 }
@@ -565,8 +577,8 @@ function TDE(tarBlockOp, refBlockOp){
     return tarBlockOp;
 }
 function TED(tarBlockOp, refBlockOp){
-    let tarUId = tarBlockOp.UId;
-    let refUId = refBlockOp.UId;
+    let taruid = tarBlockOp.uid;
+    let refuid = refBlockOp.uid;
     let tarParentId = tarBlockOp.parentId;
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
@@ -580,7 +592,7 @@ function TED(tarBlockOp, refBlockOp){
         return tarBlockOp;
     //若在以下條件: 目標index大於參考index => 則目標index-1
     else{
-        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex - 1, tarContent);
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex - 1, tarContent, 1);
         return xFormedOp;
     }
     //其他(目標與參考index相等)，不會有這種操作，因為要先focus
@@ -590,8 +602,8 @@ function TDF(tarBlockOp, refBlockOp){
     return tarBlockOp;
 }
 function TFD(tarBlockOp, refBlockOp){
-    let tarUId = tarBlockOp.UId;
-    let refUId = refBlockOp.UId;
+    let taruid = tarBlockOp.uid;
+    let refuid = refBlockOp.uid;
     let tarParentId = tarBlockOp.parentId;
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
@@ -604,13 +616,13 @@ function TFD(tarBlockOp, refBlockOp){
     }
     //條件: tarIndex > refIndex 或者其他
     else{
-        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex - 1, tarContent);
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex - 1, tarContent, 1);
         return xFormedOp;
     }
 }
 function TDD(tarBlockOp, refBlockOp){
-    let tarUId = tarBlockOp.UId;
-    let refUId = refBlockOp.UId;
+    let taruid = tarBlockOp.uid;
+    let refuid = refBlockOp.uid;
     let tarParentId = tarBlockOp.parentId;
     let refParentId = refBlockOp.parentId;
     let tarIndex = tarBlockOp.index;
@@ -618,23 +630,32 @@ function TDD(tarBlockOp, refBlockOp){
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     // 目標包住參考 目標操作則不改變
-    if(contain(tarParentId,tarIndex,refParentId,refIndex)) return tarBlockOp;
+    if(contain(tarParentId,tarIndex,refParentId,refIndex)){
+        console.log("1!!");
+        return tarBlockOp;
+    }
     // 參考包住目標 目標操作直接不執行
     else if(contain(refParentId,refIndex, tarParentId,tarIndex)){
-        let xFormedOp = new Op(tarUId, 'null', tarParentId, tarIndex, tarContent);
+        console.log("2!!");
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex, tarContent, 0);
         return xFormedOp;
     }
     // 若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作 (因為目標包含參考不需要改變，所以不多寫出來)
-    if(tarParentId != refParentId || tarIndex < refIndex)
+    if(tarParentId != refParentId || tarIndex < refIndex){
+        console.log("3!!");
         return tarBlockOp;
+    }
+
     //若在以下條件: 目標index大於參考index =>則將目標index-1
     else if(tarIndex > refIndex){
-        let xFormedOp = new Op(tarUId, tarOp, tarParentId, tarIndex - 1, tarContent);
+        console.log("4!!");
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex - 1, tarContent, 1);
         return xFormedOp;
     }
     //其他:index相等,不回傳重複操作
     else{
-        let xFormedOp = new Op(tarUId, 'null', tarParentId, tarIndex, tarContent);
+        console.log("5!!");
+        let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex, tarContent, 0);
         return xFormedOp;
     }
 }
