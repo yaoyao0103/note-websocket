@@ -21,6 +21,7 @@ var remoteOpPrime = null;
 var localOpPrimeArray = new Array;
 var remoteOpPrimeArray = new Array;
 var opBuffer = new Array();
+var remoteOpBuffer = new Array();
 var CtoS_Msg = null;
 var StoC_Msg = null;
 
@@ -236,212 +237,216 @@ function send(event) {
     event.preventDefault();
 }
 
-function onMessageReceived(payload) {
-    let StoC_msg = JSON.parse(payload.body);
-    var messageElement = document.createElement('li');
+async function onMessageReceived(payload) {
 
-    // join msg
-    if(StoC_msg.type === 'JOIN') {
-        if(StoC_msg.sender === username){
-            sessionId = StoC_msg.sessionId;
-            stompClient.subscribe('/user/' + sessionId + '/msg', onMessageReceived);
-        }
-        messageElement.classList.add('event-message');
-        StoC_msg.content = StoC_msg.sender + ' joined!';
-    }
+    await new Promise((resolve) => {
+         {
+            let StoC_msg = JSON.parse(payload.body);
+            var messageElement = document.createElement('li');
 
-    // leave msg
-    else if (StoC_msg.type === 'LEAVE') {
-        messageElement.classList.add('event-message');
-        StoC_msg.content = StoC_msg.sender + ' left!';
-    }
-
-    // ACK
-    else if (StoC_msg.type === 'ACK') {
-        //-------------------------- State: AwaitingACK ------------------------------
-        if(ClientState == ClientStateEnum.AwaitingACK){
-            ClientState = ClientStateEnum.Synced;
-        }
-        //-------------------------- State: AwaitingWithBuffer ------------------------------
-        /***** CreatingLocalOpFromBuffer *****/
-        else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
-            console.log("state: CreatingLocalOpFromBuffer");
-            // step 1: increment localTS
-            localTS += 1;
-
-            // step 2: set localOp to opBuffer.first
-            localOp = opBuffer[0];
-
-            // step 3: remove opBuffer.first from opBuffer
-            opBuffer.shift();
-
-            if (stompClient) {
-                CtoS_Msg = {
-                    sender: username,
-                    sessionId: sessionId,
-                    type: 'OP',
-                    ts: localTS,
-                    op: localOp
-                };
-                stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
-            }
-            if(opBuffer.length <= 0){
-                ClientState = ClientStateEnum.AwaitingACK;
-            }
-            // buffer is not empty => AwaitingWithBuffer state
-            else{
-                ClientState = ClientStateEnum.AwaitingWithBuffer;
-            }
-        }
-    }
-
-    // Op msg
-    else {
-        //--------------------------- State: Synced -----------------------------
-        if (ClientState==ClientStateEnum.Synced){
-            /***** ApplyRemoteOp *****/
-            console.log("state: ApplyRemoteOp");
-            // step 1: set remoteTS and remoteOp to the values within the received StoC Msg event
-            remoteOp = StoC_msg.op;
-            remoteTS = StoC_msg.ts;
-
-            // step 2: set localTS to the value of remoteTS
-            localTS = remoteTS;
-
-            // step 3: call applyOp(remoteOp)
-            applyOp(remoteOp);
-
-            ClientState = ClientStateEnum.Synced;
-        }
-        //-------------------------- State: AwaitingACK ------------------------------
-        else if(ClientState == ClientStateEnum.AwaitingACK){
-            /***** ApplyingRemoteOpWithoutACK *****/
-            console.log("state: ApplyingRemoteOpWithoutACK");
-            // step 1: set localTS to remoteTS
-            localTS = StoC_msg.ts;
-
-            // step 2: increment localTS
-            localTS += 1;
-
-            // step 3: set remoteTS and remoteOp to the values within the received StoC Msg event
-            remoteTS = StoC_msg.ts;
-            remoteOp = StoC_msg.op;
-
-            // step 4: obtain remoteOpPrime and localOpPrime by evaluating xform(remoteOp, localOp)
-            console.log("local: " + JSON.stringify(localOp));
-            console.log("remote: " + JSON.stringify(remoteOp));
-            remoteOpPrime = OT(remoteOp, localOp);
-            localOpPrime = OT(localOp, remoteOp);
-
-            // step 5: call applyOp(remoteOpPrime)
-            console.log(JSON.stringify(remoteOpPrime));
-            applyOp(remoteOpPrime);
-
-            // step 6: set localOp to the value of localOpPrime
-            localOp = localOpPrime;
-
-            // step 7: send localOp to Controller
-            if (stompClient) {
-                CtoS_Msg = {
-                    sender: username,
-                    sessionId: sessionId,
-                    type: 'OP',
-                    ts: localTS,
-                    op: localOp
-                };
-                stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
+            // join msg
+            if(StoC_msg.type === 'JOIN') {
+                if(StoC_msg.sender === username){
+                    sessionId = StoC_msg.sessionId;
+                    stompClient.subscribe('/user/' + sessionId + '/msg', onMessageReceived);
+                }
+                messageElement.classList.add('event-message');
+                StoC_msg.content = StoC_msg.sender + ' joined!';
             }
 
-            if(opBuffer.length <= 0){
-                ClientState = ClientStateEnum.AwaitingACK;
-            }
-            // buffer is not empty => AwaitingWithBuffer state
-            else{
-                ClientState = ClientStateEnum.AwaitingWithBuffer;
-            }
-            //localOp = localOpPrime;
-        }
-        //-------------------------- State: AwaitingWithBuffer ------------------------------
-        else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
-
-            /***** ApplyingRemoteOpWithBuffer *****/
-            remoteOp = StoC_msg.op;
-            remoteTS = StoC_msg.ts;
-            // step 1: set localTS to remoteTS
-            localTS = remoteTS;
-
-            // step 2: increment localTS
-            localTS += 1;
-
-            // step 3: obtain remoteOpPrime[0] by evaluating xform(remoteOp, localOp)
-            remoteOpPrimeArray[0] = OT(remoteOp, localOp);
-
-            // step 4: obtain remoteOpPrime[i+1] by evaluating xform(remoteOpPrime[i], opBuffer[i])
-            for(let i = 0; i < opBuffer.length; i++){
-                remoteOpPrimeArray[i+1] = OT(remoteOpPrimeArray[i], opBuffer[i]);
+            // leave msg
+            else if (StoC_msg.type === 'LEAVE') {
+                messageElement.classList.add('event-message');
+                StoC_msg.content = StoC_msg.sender + ' left!';
             }
 
-            // step 5: call applyOp(remoteOpPrime.last)
-            applyOp(remoteOpPrimeArray[remoteOpPrimeArray.length-1]);
+            // ACK
+            else if (StoC_msg.type === 'ACK') {
+                //-------------------------- State: AwaitingACK ------------------------------
+                if(ClientState == ClientStateEnum.AwaitingACK){
+                    ClientState = ClientStateEnum.Synced;
+                }
+                //-------------------------- State: AwaitingWithBuffer ------------------------------
+                /***** CreatingLocalOpFromBuffer *****/
+                else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
+                    console.log("state: CreatingLocalOpFromBuffer");
+                    // step 1: increment localTS
+                    localTS += 1;
 
-            // step 6: obtain localOpPrime by evaluating xform(localOp, remoteOp)
-            localOpPrime = OT(localOp, remoteOp);
+                    // step 2: set localOp to opBuffer.first
+                    localOp = opBuffer[0];
 
-            // step 7: set localOp to the value of localOpPrime
-            localOp = localOpPrime;
+                    // step 3: remove opBuffer.first from opBuffer
+                    opBuffer.shift();
 
-            // step 8: obtain opBuffer[i] by evaluating xform(opBuffer[i], remoteOpPrime[i]) & send
-            for(let j = 0; j < opBuffer.length; j++){
-                opBuffer[j] = OT( opBuffer[j], remoteOpPrimeArray[j]);
+                    if (stompClient) {
+                        CtoS_Msg = {
+                            sender: username,
+                            sessionId: sessionId,
+                            type: 'OP',
+                            ts: localTS,
+                            op: localOp
+                        };
+                        stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
+                    }
+                    if(opBuffer.length <= 0){
+                        ClientState = ClientStateEnum.AwaitingACK;
+                    }
+                    // buffer is not empty => AwaitingWithBuffer state
+                    else{
+                        ClientState = ClientStateEnum.AwaitingWithBuffer;
+                    }
+                }
             }
 
-            if (stompClient) {
-                CtoS_Msg = {
-                    sender: username,
-                    sessionId: sessionId,
-                    type: 'OP',
-                    ts: localTS,
-                    op: localOp
-                };
-                stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
+            // Op msg
+            else {
+                //--------------------------- State: Synced -----------------------------
+                if (ClientState==ClientStateEnum.Synced){
+                    /***** ApplyRemoteOp *****/
+                    console.log("state: ApplyRemoteOp");
+                    // step 1: set remoteTS and remoteOp to the values within the received StoC Msg event
+                    remoteOp = StoC_msg.op;
+                    remoteTS = StoC_msg.ts;
+
+                    // step 2: set localTS to the value of remoteTS
+                    localTS = remoteTS;
+
+                    // step 3: call applyOp(remoteOp)
+                    applyOp(remoteOp);
+
+                    ClientState = ClientStateEnum.Synced;
+                }
+                //-------------------------- State: AwaitingACK ------------------------------
+                else if(ClientState == ClientStateEnum.AwaitingACK){
+                    /***** ApplyingRemoteOpWithoutACK *****/
+                    console.log("state: ApplyingRemoteOpWithoutACK");
+                    // step 1: set localTS to remoteTS
+                    localTS = StoC_msg.ts;
+
+                    // step 2: increment localTS
+                    localTS += 1;
+
+                    // step 3: set remoteTS and remoteOp to the values within the received StoC Msg event
+                    remoteTS = StoC_msg.ts;
+                    remoteOp = StoC_msg.op;
+
+                    // step 4: obtain remoteOpPrime and localOpPrime by evaluating xform(remoteOp, localOp)
+                    console.log("local: " + JSON.stringify(localOp));
+                    console.log("remote: " + JSON.stringify(remoteOp));
+                    remoteOpPrime = OT(remoteOp, localOp);
+                    localOpPrime = OT(localOp, remoteOp);
+
+                    // step 5: call applyOp(remoteOpPrime)
+                    console.log(JSON.stringify(remoteOpPrime));
+                    applyOp(remoteOpPrime);
+
+                    // step 6: set localOp to the value of localOpPrime
+                    localOp = localOpPrime;
+
+                    // step 7: send localOp to Controller
+                    if (stompClient) {
+                        CtoS_Msg = {
+                            sender: username,
+                            sessionId: sessionId,
+                            type: 'OP',
+                            ts: localTS,
+                            op: localOp
+                        };
+                        stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
+                    }
+
+                    if(opBuffer.length <= 0){
+                        ClientState = ClientStateEnum.AwaitingACK;
+                    }
+                    // buffer is not empty => AwaitingWithBuffer state
+                    else{
+                        ClientState = ClientStateEnum.AwaitingWithBuffer;
+                    }
+                    //localOp = localOpPrime;
+                }
+                //-------------------------- State: AwaitingWithBuffer ------------------------------
+                else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
+
+                    /***** ApplyingRemoteOpWithBuffer *****/
+                    remoteOp = StoC_msg.op;
+                    remoteTS = StoC_msg.ts;
+                    // step 1: set localTS to remoteTS
+                    localTS = remoteTS;
+
+                    // step 2: increment localTS
+                    localTS += 1;
+
+                    // step 3: obtain remoteOpPrime[0] by evaluating xform(remoteOp, localOp)
+                    remoteOpPrimeArray[0] = OT(remoteOp, localOp);
+
+                    // step 4: obtain remoteOpPrime[i+1] by evaluating xform(remoteOpPrime[i], opBuffer[i])
+                    for(let i = 0; i < opBuffer.length; i++){
+                        remoteOpPrimeArray[i+1] = OT(remoteOpPrimeArray[i], opBuffer[i]);
+                    }
+
+                    // step 5: call applyOp(remoteOpPrime.last)
+                    applyOp(remoteOpPrimeArray[remoteOpPrimeArray.length-1]);
+
+                    // step 6: obtain localOpPrime by evaluating xform(localOp, remoteOp)
+                    localOpPrime = OT(localOp, remoteOp);
+
+                    // step 7: set localOp to the value of localOpPrime
+                    localOp = localOpPrime;
+
+                    // step 8: obtain opBuffer[i] by evaluating xform(opBuffer[i], remoteOpPrime[i]) & send
+                    for(let j = 0; j < opBuffer.length; j++){
+                        opBuffer[j] = OT( opBuffer[j], remoteOpPrimeArray[j]);
+                    }
+
+                    if (stompClient) {
+                        CtoS_Msg = {
+                            sender: username,
+                            sessionId: sessionId,
+                            type: 'OP',
+                            ts: localTS,
+                            op: localOp
+                        };
+                        stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
+                    }
+                    if(opBuffer.length <= 0){
+                        ClientState = ClientStateEnum.AwaitingACK;
+                    }
+                    // buffer is not empty => AwaitingWithBuffer state
+                    else{
+                        ClientState = ClientStateEnum.AwaitingWithBuffer;
+                    }
+                    //localOp = localOpPrime;
+                }
+
+
+
             }
-            if(opBuffer.length <= 0){
-                ClientState = ClientStateEnum.AwaitingACK;
-            }
-            // buffer is not empty => AwaitingWithBuffer state
-            else{
-                ClientState = ClientStateEnum.AwaitingWithBuffer;
-            }
-            //localOp = localOpPrime;
-        }
 
+            // show message on website
+            messageElement.classList.add('chat-message');
 
+            var avatarElement = document.createElement('i');
+            var avatarText = document.createTextNode(StoC_msg.sender[0]);
+            avatarElement.appendChild(avatarText);
+            avatarElement.style['background-color'] = getAvatarColor(StoC_msg.sender);
 
-    }
+            messageElement.appendChild(avatarElement);
 
-    // show message on website
-    messageElement.classList.add('chat-message');
+            var usernameElement = document.createElement('span');
+            var usernameText = document.createTextNode(StoC_msg.sender);
+            usernameElement.appendChild(usernameText);
+            messageElement.appendChild(usernameElement);
 
-    var avatarElement = document.createElement('i');
-    var avatarText = document.createTextNode(StoC_msg.sender[0]);
-    avatarElement.appendChild(avatarText);
-    avatarElement.style['background-color'] = getAvatarColor(StoC_msg.sender);
+            var textElement = document.createElement('p');
+            var messageText = document.createTextNode(StoC_msg.op.content);
+            textElement.appendChild(messageText);
 
-    messageElement.appendChild(avatarElement);
+            messageElement.appendChild(textElement);
 
-    var usernameElement = document.createElement('span');
-    var usernameText = document.createTextNode(StoC_msg.sender);
-    usernameElement.appendChild(usernameText);
-    messageElement.appendChild(usernameElement);
-
-    var textElement = document.createElement('p');
-    var messageText = document.createTextNode(StoC_msg.op.content);
-    textElement.appendChild(messageText);
-
-    messageElement.appendChild(textElement);
-
-    messageArea.appendChild(messageElement);
-    messageArea.scrollTop = messageArea.scrollHeight;
+            messageArea.appendChild(messageElement);
+            messageArea.scrollTop = messageArea.scrollHeight;
+        });
 }
 
 
