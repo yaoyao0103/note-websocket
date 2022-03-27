@@ -351,6 +351,7 @@ function onMessageReceived(payload) {
                 };
                 stompClient.send("/app/chat.send", {}, JSON.stringify(CtoS_Msg));
             }
+
             if(opBuffer.length <= 0){
                 ClientState = ClientStateEnum.AwaitingACK;
             }
@@ -358,6 +359,7 @@ function onMessageReceived(payload) {
             else{
                 ClientState = ClientStateEnum.AwaitingWithBuffer;
             }
+            //localOp = localOpPrime;
         }
         //-------------------------- State: AwaitingWithBuffer ------------------------------
         else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
@@ -410,6 +412,7 @@ function onMessageReceived(payload) {
             else{
                 ClientState = ClientStateEnum.AwaitingWithBuffer;
             }
+            //localOp = localOpPrime;
         }
 
 
@@ -476,6 +479,7 @@ function TII(tarBlockOp, refBlockOp){
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     if(tarParentId != refParentId || tarIndex < refIndex || (tarParentId == refParentId && tarIndex == refIndex && taruid > refuid)){
+        console.log(taruid, refuid);
         return tarBlockOp;
     }
     // 其他
