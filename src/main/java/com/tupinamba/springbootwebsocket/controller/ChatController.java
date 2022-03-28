@@ -47,17 +47,22 @@ public class ChatController {
         int remoteTS = CtoS_msg.getTS();
         Op remoteOp = CtoS_msg.getOp();
         // skip the OP
-        System.out.println("remoteTS: " + remoteTS + ",  localTS: " + localTS);
+         System.out.println("remoteTS: " + remoteTS + ",  localTS: " + localTS);
         if(remoteTS <= localTS){
-            System.out.println("keep listening!!");
+            // System.out.println("keep listening!!");
             return;
         }
         // handle this OP
         else{
             if(controllerState == ControllerState.LISTENING){
                 // start handle this OP
+                System.out.println("converting");
                 controllerState = ControllerState.PROCESSING;
-                Thread.sleep(3000);
+                try{
+                    Thread.sleep(3000);
+                }
+                catch (InterruptedException e){}
+
                 /***** PersistingNew *****/
                 // step 1: set localTS to the value from the received CtoS Msg event
                 localTS = remoteTS;
@@ -82,12 +87,17 @@ public class ChatController {
 
                 //finish
                 controllerState = ControllerState.LISTENING;
-             }
-             // do nothing
-             else{
-               return;
-             }
+            }
+            // do nothing
+            else{
+                return;
+            }
         }
+        //dealMsg(sessionId, CtoS_msg);
+    }
+
+    synchronized public void dealMsg(String sessionId, ChatMessage CtoS_msg){
+
     }
 
 }

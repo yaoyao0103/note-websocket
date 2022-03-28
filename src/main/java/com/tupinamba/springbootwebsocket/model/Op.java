@@ -6,7 +6,6 @@ public class Op {
     private String parentId;
     private int index;
     private String content;
-    private int isValid;
 
     public String getUid() {
         return uid;
@@ -46,13 +45,5 @@ public class Op {
 
     public void setContent(String content) {
         this.content = content;
-    }
-
-    public int getIsValid() {
-        return isValid;
-    }
-
-    public void setIsValid(int isValid) {
-        this.isValid = isValid;
     }
 }
