@@ -239,7 +239,7 @@ function send(event) {
 
 async function onMessageReceived(payload) {
 
-    await new Promise((resolve) => {
+    await new Promise((resolve) =>
          {
             let StoC_msg = JSON.parse(payload.body);
             var messageElement = document.createElement('li');
@@ -502,6 +502,11 @@ function TID(tarBlockOp, refBlockOp){
     let refIndex = refBlockOp.index;
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
+
+    if(refOpIsValid == 0 || tarOpIsValid == 0){
+        console.log("is not valid!!");
+        return tarBlockOp;
+    }
     if(contain(refParentId, refIndex, tarParentId, tarIndex)){
         let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex, tarContent, 0);
         return xFormedOp;
