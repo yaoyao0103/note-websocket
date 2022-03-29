@@ -18,8 +18,6 @@ var localOp = null;
 var remoteOp = null;
 var localOpPrime = null;
 var remoteOpPrime = null;
-var localOpPrimeArray = new Array;
-var remoteOpPrimeArray = new Array;
 var opBuffer = new Array();
 var CtoS_Msg = null;
 var StoC_Msg = null;
@@ -88,12 +86,17 @@ function applyOp(op){
     let newTextNode;
     let nodeOfClient;
     let children;
-
+    let parentId = op.parentId;
+    let space = "";
+    console.log(parentId);
+    console.log(parentId.length);
     if (op.type === 'INSERT') {
         //create new node
+        for(let i = 0; i <= parentId.length; i++) space += "&emsp;"
         newNode = document.createElement('div');
-        newTextNode = document.createTextNode(op.content);
-        newNode.appendChild(newTextNode);
+        newTextNode = document.createTextNode(space + op.content);
+        newNode.innerHTML = space + op.content;
+        //newNode.appendChild(newTextNode);
         //apply locally
         nodeOfClient = document.getElementById(op.parentId);
         children = nodeOfClient.children;
@@ -707,6 +710,7 @@ function ApplyingRemoteOpWithoutACK(StoC_msg){
 function ApplyingRemoteOpWithBuffer(StoC_msg){
     remoteOp = StoC_msg.op;
     remoteTS = StoC_msg.ts;
+    let remoteOpPrimeArray = new Array();
     // step 1: set localTS to remoteTS
     localTS = remoteTS;
 
@@ -718,13 +722,11 @@ function ApplyingRemoteOpWithBuffer(StoC_msg){
 
     // step 4: obtain remoteOpPrime[i+1] by evaluating xform(remoteOpPrime[i], opBuffer[i])
     for(let i = 0; i < opBuffer.length; i++){
-        //remoteOpPrimeArray[i+1] = OT(remoteOp, opBuffer[i]);
         remoteOpPrimeArray[i+1] = OT(remoteOpPrimeArray[i], opBuffer[i]);
     }
 
     // step 5: call applyOp(remoteOpPrime.last)
-    //applyOp(remoteOpPrimeArray[0]);
-    applyOp(remoteOpPrimeArray[opBuffer.length]);
+    applyOp(remoteOpPrimeArray[remoteOpPrimeArray.length-1]);
 
     // step 6: obtain localOpPrime by evaluating xform(localOp, remoteOp)
     localOpPrime = OT(localOp, remoteOp);
