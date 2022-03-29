@@ -74,6 +74,7 @@ function onConnected() {
 
     connectingElement.classList.add('hidden');
     ClientState=ClientStateEnum.Synced;
+    console.log('state: Synced');
 }
 
 
@@ -206,12 +207,14 @@ async function send(event) {
     if(ClientState == ClientStateEnum.Synced) {
         /***** ApplyingLocalOp *****/
         ClientState = ClientStateEnum.ApplyingLocalOp;
+        console.log('state: ApplyingLocalOp');
         await ApplyingLocalOp(tempOp);
     }
     // ---------------------- state: AwaitingACK or AwaitingWithBuffer --------------------
     else if(ClientState == ClientStateEnum.AwaitingACK || ClientState == ClientStateEnum.AwaitingWithBuffer){
         /***** ApplyingBufferedLocalOp *****/
         ClientState = ClientStateEnum.ApplyingBufferedLocalOp;
+        console.log('state: ApplyingBufferedLocalOp');
         await ApplyingBufferedLocalOp(tempOp);
     }
     //-------------------------- State: Others ------------------------------
@@ -256,6 +259,7 @@ async function onMessageReceived(payload) {
         else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
             /***** CreatingLocalOpFromBuffer *****/
             ClientState = ClientStateEnum.CreatingLocalOpFromBuffer;
+            console.log('state: CreatingLocalOpFromBuffer');
             await CreatingLocalOpFromBuffer();
         }
         //-------------------------- State: Others ------------------------------
@@ -272,19 +276,22 @@ async function onMessageReceived(payload) {
         //--------------------------- State: Synced -----------------------------
         if (ClientState==ClientStateEnum.Synced){
             /***** ApplyRemoteOp *****/
-            ClientState = ClientStateEnum.ApplyRemoteOp;
+            ClientState = ClientStateEnum.ApplyingRemoteOp;
+            console.log('state: ApplyingRemoteOp');
             await ApplyingRemoteOp(StoC_msg);
         }
         //-------------------------- State: AwaitingACK ------------------------------
         else if(ClientState == ClientStateEnum.AwaitingACK){
             /***** ApplyingRemoteOpWithoutACK *****/
             ClientState = ClientStateEnum.ApplyingRemoteOpWithoutACK;
+            console.log('state: ApplyingRemoteOpWithoutACK');
             await ApplyingRemoteOpWithoutACK(StoC_msg);
         }
         //-------------------------- State: AwaitingWithBuffer ------------------------------
         else if(ClientState == ClientStateEnum.AwaitingWithBuffer){
             /***** ApplyingRemoteOpWithBuffer *****/
             ClientState = ClientStateEnum.ApplyingRemoteOpWithBuffer;
+            console.log('state: ApplyingRemoteOpWithBuffer');
             await ApplyingRemoteOpWithBuffer(StoC_msg);
         }
         //-------------------------- State: Others ------------------------------
@@ -578,7 +585,7 @@ function TFF(tarBlockOp, refBlockOp){
 
 function SendingOpToController(){
     // send Op to controller
-    console.log("state: SendingOpToController");
+    //console.log("state: SendingOpToController");
     if (stompClient) {
         CtoS_Msg = {
             sender: username,
@@ -593,15 +600,17 @@ function SendingOpToController(){
     // buffer is empty => AwaitingACK state
     if(opBuffer.length <= 0){
         ClientState = ClientStateEnum.AwaitingACK;
+        console.log("state: AwaitingACK");
     }
     // buffer is not empty => AwaitingWithBuffer state
     else{
         ClientState = ClientStateEnum.AwaitingWithBuffer;
+        console.log("state: AwaitingWithBuffer");
     }
 }
 
 function ApplyingLocalOp(tempOp){
-    console.log("state: ApplyingLocalOp");
+    //console.log("state: ApplyingLocalOp");
     // step 1: set localOp to the Op in the received LocalChange event
     localOp = tempOp;
 
@@ -613,11 +622,12 @@ function ApplyingLocalOp(tempOp){
 
     // next state: SendingOpToController
     ClientState = ClientStateEnum.SendingOpToController;
+    console.log("state: SendingOpToController");
     SendingOpToController();
 }
 
 function ApplyingBufferedLocalOp(tempOp){
-    console.log("state: ApplyingBufferedLocalOp");
+    //console.log("state: ApplyingBufferedLocalOp");
     // step 1: add Op from the received LocalChange event to opBuffer
     opBuffer.push(tempOp);
 
@@ -626,10 +636,11 @@ function ApplyingBufferedLocalOp(tempOp){
 
     // next state: AwaitingWithBuffer
     ClientState = ClientStateEnum.AwaitingWithBuffer;
+    console.log("state: AwaitingWithBuffer");
 }
 
 function CreatingLocalOpFromBuffer(){
-    console.log("state: CreatingLocalOpFromBuffer");
+    //console.log("state: CreatingLocalOpFromBuffer");
     // step 1: increment localTS
     localTS += 1;
 
@@ -641,11 +652,12 @@ function CreatingLocalOpFromBuffer(){
 
     // next state: SendingOpToController
     ClientState = ClientStateEnum.SendingOpToController;
+    console.log("state: SendingOpToController");
     SendingOpToController();
 }
 
 function ApplyingRemoteOp(StoC_msg){
-    console.log("state: ApplyRemoteOp");
+    //console.log("state: ApplyRemoteOp");
     // step 1: set remoteTS and remoteOp to the values within the received StoC Msg event
     remoteOp = StoC_msg.op;
     remoteTS = StoC_msg.ts;
@@ -662,7 +674,7 @@ function ApplyingRemoteOp(StoC_msg){
 }
 
 function ApplyingRemoteOpWithoutACK(StoC_msg){
-    console.log("state: ApplyingRemoteOpWithoutACK");
+    //console.log("state: ApplyingRemoteOpWithoutACK");
     // step 1: set localTS to remoteTS
     localTS = StoC_msg.ts;
 
@@ -687,7 +699,8 @@ function ApplyingRemoteOpWithoutACK(StoC_msg){
     localOp = localOpPrime;
 
     // next state: SendingOpToController
-    ClientState = ClientStateEnum.SendingOpToController;
+    ClientState = ClientStateEnum.SendingOpToController
+    console.log("state: SendingOpToController");
     SendingOpToController();
 }
 
@@ -705,11 +718,13 @@ function ApplyingRemoteOpWithBuffer(StoC_msg){
 
     // step 4: obtain remoteOpPrime[i+1] by evaluating xform(remoteOpPrime[i], opBuffer[i])
     for(let i = 0; i < opBuffer.length; i++){
+        //remoteOpPrimeArray[i+1] = OT(remoteOp, opBuffer[i]);
         remoteOpPrimeArray[i+1] = OT(remoteOpPrimeArray[i], opBuffer[i]);
     }
 
     // step 5: call applyOp(remoteOpPrime.last)
-    applyOp(remoteOpPrimeArray[remoteOpPrimeArray.length-1]);
+    //applyOp(remoteOpPrimeArray[0]);
+    applyOp(remoteOpPrimeArray[opBuffer.length]);
 
     // step 6: obtain localOpPrime by evaluating xform(localOp, remoteOp)
     localOpPrime = OT(localOp, remoteOp);
@@ -724,6 +739,7 @@ function ApplyingRemoteOpWithBuffer(StoC_msg){
 
     // next state: SendingOpToController
     ClientState = ClientStateEnum.SendingOpToController;
+    console.log("state: SendingOpToController");
     SendingOpToController();
 }
 usernameForm.addEventListener('submit', connect, true)
