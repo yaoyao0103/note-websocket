@@ -88,15 +88,14 @@ function applyOp(op){
     let children;
     let parentId = op.parentId;
     let space = "";
-    console.log(parentId);
-    console.log(parentId.length);
+
     if (op.type === 'INSERT') {
         //create new node
-        for(let i = 0; i <= parentId.length; i++) space += "&emsp;"
+        //for(let i = 0; i <= parentId.length; i++) space += "&emsp;"
         newNode = document.createElement('div');
-        newTextNode = document.createTextNode(space + op.content);
-        newNode.innerHTML = space + op.content;
-        //newNode.appendChild(newTextNode);
+        newTextNode = document.createTextNode(op.content);
+        //newNode.innerHTML = space + op.content;
+        newNode.appendChild(newTextNode);
         //apply locally
         nodeOfClient = document.getElementById(op.parentId);
         children = nodeOfClient.children;
