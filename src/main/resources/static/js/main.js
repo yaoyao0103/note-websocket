@@ -91,21 +91,24 @@ function applyOp(op){
 
     if (op.type === 'INSERT') {
         //create new node
-        //for(let i = 0; i <= parentId.length; i++) space += "&emsp;"
+        for(let i = 0; i <= parentId.length; i++) space += "&emsp;"
         newNode = document.createElement('div');
-        newTextNode = document.createTextNode(op.content);
-        //newNode.innerHTML = space + op.content;
-        newNode.appendChild(newTextNode);
+        //newTextNode = document.createTextNode(op.content);
+        newNode.innerHTML = space + op.content;
+        //newNode.appendChild(newTextNode);
         //apply locally
         nodeOfClient = document.getElementById(op.parentId);
-        children = nodeOfClient.children;
-        nodeOfClient.insertBefore(newNode, children[op.index]);
+        if(nodeOfClient)
+            if(nodeOfClient.children.length > op.index)
+                nodeOfClient.insertBefore(newNode, nodeOfClient.children[op.index]);
     }
     else if (op.type === 'DELETE') {
         //save origin content
         nodeOfClient = document.getElementById(op.parentId);
-        children = nodeOfClient.children;
-        nodeOfClient.removeChild(children[op.index]);
+        if(nodeOfClient)
+            if(nodeOfClient.hasChildNodes())
+                if(nodeOfClient.children.length > op.index)
+                    nodeOfClient.removeChild(nodeOfClient.children[op.index]);
 
     }
     else if (op.type === 'EDIT'){
@@ -221,10 +224,9 @@ async function send(event) {
     }
     //-------------------------- State: Others ------------------------------
     else{
-        while(ClientState != ClientStateEnum.Synced && ClientState != ClientStateEnum.AwaitingACK && ClientState != ClientStateEnum.AwaitingWithBuffer){
-            console.log("send waiting")
+        if(ClientState != ClientStateEnum.Synced && ClientState != ClientStateEnum.AwaitingACK && ClientState != ClientStateEnum.AwaitingWithBuffer){
+            send(event);
         }
-        send(event);
     }
     event.preventDefault();
 }
@@ -266,10 +268,9 @@ async function onMessageReceived(payload) {
         }
         //-------------------------- State: Others ------------------------------
         else{
-            while(ClientState != ClientStateEnum.AwaitingACK && ClientState != ClientStateEnum.AwaitingWithBuffer){
-                console.log("ACK waiting")
+            if(ClientState != ClientStateEnum.AwaitingACK && ClientState != ClientStateEnum.AwaitingWithBuffer){
+                onMessageReceived(payload);
             }
-            onMessageReceived(payload);
         }
     }
 
@@ -298,10 +299,9 @@ async function onMessageReceived(payload) {
         }
         //-------------------------- State: Others ------------------------------
         else{
-            while(ClientState != ClientStateEnum.Synced && ClientState != ClientStateEnum.AwaitingACK && ClientState != ClientStateEnum.AwaitingWithBuffer){
-                console.log("Op waiting: " + ClientState)
+            if(ClientState != ClientStateEnum.Synced && ClientState != ClientStateEnum.AwaitingACK && ClientState != ClientStateEnum.AwaitingWithBuffer){
+                onMessageReceived(payload);
             }
-            onMessageReceived(payload);
         }
 
 
@@ -349,13 +349,15 @@ function getAvatarColor(messageSender) {
 function sleep(time) {
     return new Promise((resolve) => setTimeout(resolve, time));
 }
-function contain(tarParentId, tarIndex, refParentId, refIndex){
-    const elementContains = (parent, child) => parent !== child && parent.contains(child);
+function isExisted(tarParentId, tarIndex){
 
-    let refNode = document.getElementById(refParentId).childNodes[refIndex];
-    let tarNode = document.getElementById(tarParentId).childNodes[tarIndex];
-    return elementContains(tarNode, refNode);
-    //return false;
+    let tarParent = document.getElementById(tarParentId);
+    if(tarParent){
+        return false;
+    }
+    else{ // null => had been deleted locally => had been contained
+        return true;
+    }
 }
 function TII(tarBlockOp, refBlockOp){
     let taruid = tarBlockOp.uid;
@@ -386,9 +388,8 @@ function TID(tarBlockOp, refBlockOp){
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
 
-    if(contain(refParentId, refIndex, tarParentId, tarIndex)){
+    if(isExisted(tarParentId, tarIndex)){
         //let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex, tarContent);
-        console.log("contain!!");
         let xFormedOp = new Op(taruid, "NULL", tarParentId, tarIndex, tarContent);
         return xFormedOp;
     }
@@ -524,50 +525,34 @@ function TDD(tarBlockOp, refBlockOp){
     let tarContent = tarBlockOp.content;
     /*let refOpIsValid = refBlockOp.isValid;
     let tarOpIsValid = tarBlockOp.isValid;*/
-    // 目標包住參考 目標操作則不改變
-    if(contain(tarParentId,tarIndex,refParentId,refIndex)){
-        console.log("1!!");
-        return tarBlockOp;
-    }
     // 參考包住目標 目標操作直接不執行
-    else if(contain(refParentId,refIndex, tarParentId,tarIndex)){
-        console.log("2!!");
+    if(isExisted(tarParentId,tarIndex)){
+        console.log("1!!");
         let xFormedOp = new Op(taruid, "NULL", tarParentId, tarIndex, tarContent);
         return xFormedOp;
     }
 
-    /*
-        如果tarOp是無效的 則不改變操作
-        例子:
-        A刪第一個 B再刪第一個 A再刪第一個
-        原本有問題的會是B方
-        在收到A的第一個操作時 A'會是有效操作，B'則為無效操作寄出
-        *重點: 在ApplingRemoteOpWithoutACK state中，會把localOp設為localOpPrime 即現在的localOp是無效操作
-        在原本的還沒改TDD時，A的第二個操作進來，執行TDD(remoteOp, localOp)會到最下面那個我打console.log("5!!")那個地方，會回傳無效Op，所以remoteOpPrime就會試無效的 不會被A套用
-        改了TDD後，我加了一個判斷refOp是否isValid，如果是無效Op則回傳有效不改變操作，意思即是說 如果本地操作是無效的話，代表那個本地操作可能是之前的操作，衝突已經化解過了，這次不會再衝突的概念，直接回傳有效不改變操作
-        回傳有效不改變操作，即remoteOpPrime是有效的，才會被A套用到
-    */
-    /*if(refOpIsValid == 0 || tarOpIsValid == 0){
-        console.log("is not valid!!");
-        return tarBlockOp;
-    }*/
     // 若在以下條件: 1. 不在同個parent下  2. 目標index小於參考index => 則不改變操作 (因為目標包含參考不需要改變，所以不多寫出來)
     if(tarParentId != refParentId || tarIndex < refIndex){
-        console.log("3!!");
+        console.log("2!!");
         return tarBlockOp;
     }
 
     //若在以下條件: 目標index大於參考index =>則將目標index-1
     else if(tarIndex > refIndex){
-        console.log("4!!");
+        console.log("3!!");
         let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex - 1, tarContent);
         return xFormedOp;
     }
-    //其他:index相等,不回傳重複操作
-    else{
-        console.log("5!!");
+    //index相等,不回傳重複操作
+    else if(tarIndex == refIndex){
+        console.log("4!!");
         let xFormedOp = new Op(taruid, "NULL", tarParentId, tarIndex, tarContent);
         return xFormedOp;
+    }
+    else{
+        console.log("5!!");
+        return tarBlockOp;
     }
 }
 

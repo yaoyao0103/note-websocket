@@ -1,0 +1,53 @@
+#
+# There is insufficient memory for the Java Runtime Environment to continue.
+# Native memory allocation (malloc) failed to allocate 32744 bytes for ChunkPool::allocate
+# Possible reasons:
+#   The system is out of physical RAM or swap space
+#   The process is running with CompressedOops enabled, and the Java Heap may be blocking the growth of the native heap
+# Possible solutions:
+#   Reduce memory load on the system
+#   Increase physical memory or swap space
+#   Check if swap backing store is full
+#   Decrease Java heap size (-Xmx/-Xms)
+#   Decrease number of Java threads
+#   Decrease Java thread stack sizes (-Xss)
+#   Set larger code cache with -XX:ReservedCodeCacheSize=
+#
+#  , tid=1788
+---------------  S U M M A R Y ------------
+
+Command Line: -javaagent:D:\IntelliJ IDEA Community Edition 2021.1.1\lib\idea_rt.jar=59928:D:\IntelliJ IDEA Community Edition 2021.1.1\bin -Dfile.encoding=UTF-8 com.tupinamba.springbootwebsocket.SpringBootWebsocketApplication
+
+Host: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz, 12 cores, 11G,  Windows 10 , 64 bit Build 22000 (10.0.22000.434)
+Time: Wed Mar 30 14:08:44 2022 台北標準時間 elapsed time: 103.713762 seconds (0d 0h 1m 43s)
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x0000024aff6b0800):  JavaThread "C1 CompilerThread0" daemon [_thread_in_native, id=1788, stack(0x000000627c600000,0x000000627c700000)]
+
+
+Current CompileTask:
+C1: 103713 3725   !   3       org.apache.tomcat.util.net.NioEndpoint$Poller::events (282 bytes)
+
+Stack: [0x000000627c600000,0x000000627c700000]
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
+V  [jvm.dll+0x601d7a]
+V  [jvm.dll+0x78b45e]
+V  [jvm.dll+0x78cb2f]
+V  [jvm.dll+0x78d1f3]
+V  [jvm.dll+0x24bc58]
+V  [jvm.dll+0xc23fb]
+V  [jvm.dll+0xc275c]
+V  [jvm.dll+0x16bc03]
+V  [jvm.dll+0x16bcd0]
+V  [jvm.dll+0x16e4dd]
+V  [jvm.dll+0x1700f1]
+V  [jvm.dll+0x12a9f5]
+V  [jvm.dll+0x12a26f]
+V  [jvm.dll+0x12a49f]
+V  [jvm.dll+0x129747]
+V  [jvm.dll+0x12b657]
+V  [jvm.dll+0x213b57]
+V  [jvm.dll+0x211d1b]
+V  [jvm.dll+0x74f509]
+V  [jvm.dll+0x748574]
