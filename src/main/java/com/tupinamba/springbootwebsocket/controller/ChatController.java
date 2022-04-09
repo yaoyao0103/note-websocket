@@ -73,7 +73,7 @@ public class ChatController {
                 // step 1: send StoC ACK event to the clientID of the accepted Op
                 CtoS_msg.setType(ChatMessage.MessageType.ACK);
                 CtoS_msg.setSender("Controller");
-                simpMessagingTemplate.convertAndSendToUser(sessionId, "/msg", CtoS_msg);
+                simpMessagingTemplate.convertAndSendToUser(sender, "/msg", CtoS_msg);
 
                 /***** SendingToRemainingClients *****/
                 CtoS_msg.setType(ChatMessage.MessageType.OP);
@@ -81,7 +81,7 @@ public class ChatController {
                 CtoS_msg.setSender(sender);
                 for (Map.Entry<String, String> entry : dict.entrySet()) {
                     if( !sender.equals(entry.getKey()) ){
-                        simpMessagingTemplate.convertAndSendToUser(entry.getValue(), "/msg", CtoS_msg);
+                        simpMessagingTemplate.convertAndSendToUser(entry.getKey(), "/msg", CtoS_msg);
                     }
                 }
 
