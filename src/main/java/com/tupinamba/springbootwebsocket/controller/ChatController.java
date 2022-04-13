@@ -3,6 +3,7 @@ package com.tupinamba.springbootwebsocket.controller;
 import com.tupinamba.springbootwebsocket.model.ChatMessage;
 import com.tupinamba.springbootwebsocket.model.Op;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -10,6 +11,7 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,8 +44,20 @@ public class ChatController {
 
     @MessageMapping("/chat.send")
     public void sendMessage(@Header("simpSessionId") String sessionId, @Payload ChatMessage CtoS_msg) throws InterruptedException {
+
         System.out.println(controllerState);
         String sender = CtoS_msg.getSender();
+        ChatMessage.MessageType type=CtoS_msg.getType();
+        if(type== ChatMessage.MessageType.LEAVE ){
+            System.out.println(type);
+            System.out.println(dict.size());
+            dict.remove(sender);
+            System.out.println(dict.size());
+            if(dict.size()==0){
+                localTS=0;
+                opHistory.clear();
+            }
+        }
         int remoteTS = CtoS_msg.getTS();
         Op remoteOp = CtoS_msg.getOp();
         // skip the OP
@@ -97,6 +111,18 @@ public class ChatController {
     }
 
     synchronized public void dealMsg(String sessionId, ChatMessage CtoS_msg){
+
+    }
+    @EventListener
+    private void handleSessionDisconnect(SessionDisconnectEvent event) {
+        String sender = event.getSessionId();
+            System.out.println(dict.size());
+            dict.values().remove(sender);
+            System.out.println(dict.size());
+            if(dict.size()==0){
+                localTS=0;
+                opHistory.clear();
+            }
 
     }
 
