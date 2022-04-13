@@ -14,7 +14,6 @@
     <name>spring-boot-websocket</name>
     <description>Desafio realizado para a empresa Tupinambá como parte do processo seletivo</description>
     <properties>
-        <java.version>11</java.version>
     </properties>
     <dependencies>
         <dependency>
