@@ -1,49 +1,24 @@
 package com.tupinamba.springbootwebsocket.model;
 
 public class Op {
-    private String uid;
-    private String type;
-    private String parentId;
-    private int index;
-    private String content;
+    private String action;
+    private String opts;
 
-    public String getUid() {
-        return uid;
+    public String getAction() {
+        return action;
     }
 
-    public void setUid(String uid) {
-        this.uid = uid;
+    public void setAction(String action) {
+        this.action = action;
     }
 
-    public String getType() {
-        return type;
+    public String getOpts() {
+        return opts;
     }
 
-    public void setType(String type) {
-        this.type = type;
+    public void setOpts(String opts) {
+        this.opts = opts;
     }
 
-    public String getParentId() {
-        return parentId;
-    }
 
-    public void setParentId(String parentId) {
-        this.parentId = parentId;
-    }
-
-    public int getIndex() {
-        return index;
-    }
-
-    public void setIndex(int index) {
-        this.index = index;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
 }

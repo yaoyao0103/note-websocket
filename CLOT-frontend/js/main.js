@@ -237,10 +237,11 @@ async function onMessageReceived(payload) {
 
     // join msg
     if(StoC_msg.type === 'JOIN') {
-        /*if(StoC_msg.sender === username){
+        if(StoC_msg.sender === username){
             sessionId = StoC_msg.sessionId;
-            stompClient.subscribe('/user/' + sessionId + '/msg', onMessageReceived);
-        }*/
+            console.log(sessionId);
+            //stompClient.subscribe('/user/' + sessionId + '/msg', onMessageReceived);
+        }
         messageElement.classList.add('event-message');
         StoC_msg.content = StoC_msg.sender + ' joined!';
     }
@@ -368,11 +369,12 @@ function TII(tarBlockOp, refBlockOp){
     let tarOp = tarBlockOp.type;
     let tarContent = tarBlockOp.content;
     if(tarParentId != refParentId || tarIndex < refIndex || (tarParentId == refParentId && tarIndex == refIndex && taruid > refuid)){
-        console.log(taruid, refuid);
+        console.log("taruid > refuid" + taruid, refuid);
         return tarBlockOp;
     }
     // 其他
     else{
+        console.log("taruid <= refuid" + taruid, refuid);
         let xFormedOp = new Op(taruid, tarOp, tarParentId, tarIndex + 1, tarContent);
         return xFormedOp;
     }

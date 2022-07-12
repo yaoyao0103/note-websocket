@@ -3,22 +3,47 @@ package com.tupinamba.springbootwebsocket.model;
 
 public class ChatMessage {
 
-    private String sender;
+    private String senderEmail;
+    private String senderName;
     private String sessionId;
     private MessageType type;
     private int ts;
-    private Op op;
+    private String op;
+    private String newcomer;
+    private String queue;
+    private String noteId;
 
     public enum MessageType {
-        OP, LEAVE, JOIN, ACK
+        OP, LEAVE, JOIN, ACK, COPY
     }
 
-    public String getSender() {
-        return sender;
+    public ChatMessage(String senderName, String senderEmail, String sessionId, MessageType type, int ts, String op, String newcomer, String queue, String noteId){
+        this.senderName = senderName;
+        this.senderEmail = senderEmail;
+        this.sessionId = sessionId;
+        this.type = type;
+        this.ts = ts;
+        this.op = op;
+        this.newcomer = newcomer;
+        this.queue = queue;
+        this.noteId = noteId;
     }
 
-    public void setSender(String sender) {
-        this.sender = sender;
+
+    public String getSenderEmail() {
+        return senderEmail;
+    }
+
+    public void setSenderEmail(String senderEmail) {
+        this.senderEmail = senderEmail;
+    }
+
+    public String getSenderName() {
+        return senderName;
+    }
+
+    public void setSenderName(String senderName) {
+        this.senderName = senderName;
     }
 
     public String getSessionId() {
@@ -37,11 +62,11 @@ public class ChatMessage {
         this.type = type;
     }
 
-    public Op getOp() {
+    public String getOp() {
         return op;
     }
 
-    public void setOp(Op op) {
+    public void setOp(String op) {
         this.op = op;
     }
 
@@ -53,8 +78,32 @@ public class ChatMessage {
         this.ts = ts;
     }
 
+    public String getNewcomer() {
+        return newcomer;
+    }
+
+    public void setNewcomer(String newcomer) {
+        this.newcomer = newcomer;
+    }
+
+    public String getQueue() {
+        return queue;
+    }
+
+    public void setQueue(String queue) {
+        this.queue = queue;
+    }
+
+    public String getNoteId() {
+        return noteId;
+    }
+
+    public void setNoteId(String noteId) {
+        this.noteId = noteId;
+    }
+
     @Override
     public String toString(){
-        return String.format("sender: %s,  TS: %d", sender, ts);
+        return String.format("op: %s", op);
     }
 }
